@@ -1,0 +1,118 @@
+<!----------------------------------------------------------------------------
+Copyright (c) 2014, Intel Corporation
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of Intel Corporation nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  --------------------------------------------------------------------------->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<link rel="stylesheet" type="text/css" href="grid_style.css">
+
+</head>
+
+<body>
+
+<!----------------------------------------------------------------------------
+  Hidden Tables that are replaced with script Just used to create IDs  
+  --------------------------------------------------------------------------->
+<div class='progStrctHead' id='progHead'></div>
+
+<table  class='menuTable' id='outMenu'>
+
+</table>
+
+<table  class='menuTable' id='src1Menu'></table>
+<table  class='menuTable' id='src2Menu'></table> 
+<table  class='menuTable' id='src3Menu'></table> 
+<table  class='menuTable' id='src4Menu'></table> 
+<table  class='menuTable' id='src5Menu'></table> 
+<table  class='menuTable' id='src6Menu'></table> 
+<table  class='menuTable' id='src7Menu'></table> 
+<table  class='menuTable' id='src8Menu'></table> 
+<table  class='menuTable' id='src9Menu'></table> 
+<table  class='menuTable' id='src10Menu'></table> 
+
+<div class='comment' id='commentBox'></div>
+
+
+<!--
+
+<div class='dialog' id='dialogBox'></div>
+
+<table  class='menuTable'>
+  <tr><td><div id='outMenuR1'></div></td></tr>
+  <tr><td><div id='outMenuR2'></div></td></tr>
+</table>
+
+<table  class='menuTable'>
+  <tr><td><div id='src1MenuR1'></div></td></tr>
+  <tr><td><div id='src1MenuR2'></div></td></tr>
+</table>
+-->
+
+<div  class='gridBotSep' id='GridBotSep'></div>
+
+
+<table  class='gridconfig' id='GridConfMenu'></table>
+
+
+
+<!-- Horizontal Break for the Code Window -->
+
+<table class='codeWin' id='codeWindow'></table>
+<table class='operatorWin' id='operatorWindow'></table>
+<div class='stepCap' id='stepCaption'></div>
+
+<div  class='codeBotSep' id='codeBotSep'></div>
+<div class='tipWin' id='tipWindow'> </div>
+
+<a id='saveLink'></a>
+
+<input type='file' id='fileUpload'  onchange='uploadFileContents(this.files)'
+style='visibility:hidden'>
+
+
+<input type='file' id='libFileRead' style='visibility:hidden'>
+<a id='libFileSave'></a>
+
+
+<!----------------------------------------------------------------------------
+  Include .js script here. The script must be included last so that it
+  can refer to HTML elements in the page above (e.g., outMenu)
+  --------------------------------------------------------------------------->
+
+<script src="grid_script.js"></script>
+<script src="grid_codegen.js"></script>
+<script src="grid_parallel.js"></script>
+<script src="grid_codegen_C.js"></script>
+<script src="grid_codegen_OCL.js"></script>
+<script src="grid_codegen_MPI.js"></script> 
+
+</body>
+</html>
+ 
+
