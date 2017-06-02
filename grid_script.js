@@ -29,13 +29,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // Author : Ruchira Sasanka
 // Date   : Nov 1, 2013
 
-/****************************** Explainations ******************************/
+/****************************** Explanations ******************************/
 
 // Titles vs. Indices:
 //-------------------
 // - Titles are non-editable after configuration. Indices are editable and
 //   customizable for each usage of the grid. Hence, indices can be different
-//   for a given step (we need to clone indices but not titles)
+//   for a given step (we need to clone indices but not titles).
 // - As per above, we need to have both indices AND titles displayed for
 //   each dimension.
 // - Any dimension can have either titles OR indices displayed.
@@ -54,7 +54,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 var AllHtmlGridIds = ['outMenu', 'src1Menu', 'src2Menu', 'src3Menu',
     'src4Menu', 'src5Menu', 'src6Menu', 'src7Menu',
-    'src8Menu', 'src9Menu', 'src10Menu'
+    'src8Menu', 'src9Menu', 'src10Menu',
+    'src11Menu', 'src12Menu', 'src13Menu', 'src14Menu',
+    'src15Menu', 'src16Menu', 'src17Menu', 
+    'src18Menu', 'src19Menu', 'src20Menu', 
+    'src21Menu', 'src22Menu', 'src23Menu', 'src24Menu',
+    'src25Menu', 'src26Menu', 'src27Menu', 
+    'src28Menu', 'src29Menu', 'src30Menu', 
+    'src31Menu', 'src32Menu', 'src33Menu', 'src34Menu',
+					  //DC5: Increased, otherwise only
+					  // supports up to 11 grids (src
+					  // and output).
 ];
 
 // Data types supported:
@@ -73,7 +83,7 @@ var AllHtmlGridIds = ['outMenu', 'src1Menu', 'src2Menu', 'src3Menu',
 //       would allow late binding. 
 //
 var TypesArr = ['integer', 'real', 'string', 'boolean', 'char', 'real_sp',
-    'uniqInd', 'func'
+    'uniqInd', 'func', 'void' //DC5: Added void datatype
 ];
 //
 var DataTypes = {
@@ -84,7 +94,8 @@ var DataTypes = {
     Char: 4,        // a single character  
     Real4: 5,       // single precision real numbers
     UniqInd: 6,     // unique index -- integer type w/ no duplicate values
-    Func: 7
+    Func: 7,
+    Void: 8	    //DC5: added void data-type (for function retVal type)
 };
 
 
@@ -272,16 +283,13 @@ var MMenu = {
     AddModule: 9,
     UnusedGrids: 10,
     //
-    // TODO: Delete the following --------------------
+    // TODO: Delete the following (used for debugging) --------------------
     //
     ShowFortranCode: 20, // Show FORTRAN generated code
     ShowFortranCodeParallel: 21, // Show FORTRAN parallel generated code
     SaveFortranCode: 22, // Save FORTRAN generated code
     SaveFortranCodeParallel: 23, // Save FORTRAN parallel generated code
     AnalyzeParallelism: 24, // Analyze parallelism 
-    RunOnCloud0: 25, // Auto-gen serial version and compile
-    RunOnCloud1: 26, // Auto-gen parallel version and compile
-    Autotune: 27, // Produce auto-tune script and code implementations
     ShowCcode: 28, //Show C generated code
     SaveCcode: 29, //Save C generated code
     SaveOCLcode: 30, //OCL: Save OpenCL generated code
@@ -317,7 +325,11 @@ var ExprType = {
     Number: 8,      // number
     Range: 9,       // an index range like row=(1:end)
     String: 10,     // a string constant
-    Literal:11,     // predefined (literal) name like start, end, let val, ... 
+    Literal:11,     // predefined (literal) name like 'end0' , ... 
+                    // TODO: Change this to EndLiteral and use this only for
+                    //       end label. Any other literal name should have
+                    //       a unique type. Also, ExprObj.grid of this literal
+                    //       should be set to point to a grid.
     Concat:12,      // just a concatenation of expression 
     ConcatEdit:13,  // a concat type while being edited (spaces enabled)
     //
@@ -494,6 +506,11 @@ var ProgFileName;
 //
 var Timer = null;
 
+
+//DC4: Flag for integration mode. Used to show menus/options/etc. and perform
+//     appropriate code generation (i.e., without prefixes, e.g., ft_) when
+//     we are working in generating code to integrate with existing code.
+var CodeIntegrationMode = 1;
 
 
 
@@ -868,6 +885,8 @@ function GridObj(gridId, caption, actCols, actRows, showCols, showRows,
     //       If a table has titles there is no need for indices -- titles
     //       can be used as start/end of a range, if a range is inserted.
     //
+    // WARN: dimHasTitles, dimHasIndices, dimShowSize, dimActSize can contain
+    //       extra entry when numDim == 1. TODO: Fix this. 
     //
     this.dimHasTitles = new Array(2);
     this.dimHasTitles[ColDimId] = hasColTitles;
@@ -898,6 +917,18 @@ function GridObj(gridId, caption, actCols, actRows, showCols, showRows,
     this.dimIsExtended[ColDimId] = false;
     this.isGlobal = false;
     this.isDistributed = false;
+
+    this.inExternalMod = false; //NS: Default:false, if in external module, true
+    this.nameExternalMod = ""; //NS: Keeps the name of external module if inExternalMod = true
+
+    this.isCommon = false; //NS2: Default:false, if in common block, true
+    this.nameCommon = ""; //NS2: Keeps the name of common block if isCommon = true
+    this.structCaption = null; //DC3: Implies that grid belongs to an existing
+			       // struct, i.e., we want to integrate GLAF code 
+			       // with existing code. 
+		  	       // This applies when we are in 
+			       // GLOBAL scope and select that current grid
+		 	       // belongs in existing module.
 
     this.dimSelectTabs = new Array();   // selected tab/index per dim
     
@@ -1399,8 +1430,8 @@ function cloneStepObj(s) {
     //
     this.dimNameExprs = s.dimNameExprs.slice(0);
 
-    // VERIFY: Since we are cloning an existing grid, the output grid cannot
-    // be a new one
+    // VERIFY: Since we are cloning an existing grid for duplicating a step
+    //         the ouput grid is not new.
     //
     this.isOutGridNew = false;
     //
@@ -1528,6 +1559,12 @@ function cloneGridObj(newGId, s) {
     this.isDistributed = s.isDistributed;
     this.dimIsExtended = s.dimIsExtended.slice(0);
 
+    this.inExternalMod = s.inExternalMod; //NS:
+    this.nameExternalMod = s.nameExternalMod; //NS:
+
+    this.isCommon = s.isCommon; //NS2:
+    this.nameCommon = s.nameCommon; //NS2:
+    this.structCaption = s.structCaption; //DC3:
 
     // ---------- STEP specific variabiles: Do NOT clone -----------------
     //
@@ -1771,7 +1808,12 @@ function GridObjSav(gO) {
     this.isDistributed = gO.isDistributed;
     this.dimIsExtended = gO.dimIsExtended.slice(0);
 
+    this.inExternalMod = gO.inExternalMod; //NS:
+    this.nameExternalMod = gO.nameExternalMod; //NS:
 
+    this.isCommon = gO.isCommon; //NS2:
+    this.nameCommon = gO.nameCommon; //NS2:
+    this.structCaption = gO.structCaption; //DC3:
 
 }
 
@@ -2150,6 +2192,10 @@ function loadGridObj(s) {
     gO.dimShowSize = s.dimShowSize.slice(0);
     gO.dimActSize = s.dimActSize.slice(0);
 
+    assert((gO.dimActSize.length <= (gO.numDims+2)), 
+	   "Grid:" + gO.caption +
+	   " ActSize.length:" + gO.dimActSize.length + 
+	   " numDim:" + gO.numDims);
 
     // TODO: after file conversion is done, remove if-else check
     //
@@ -2194,6 +2240,14 @@ function loadGridObj(s) {
     gO.isGlobal = s.isGlobal;
     gO.isDistributed = s.isDistributed;
     gO.dimIsExtended = s.dimIsExtended.slice(0);
+
+
+    gO.inExternalMod = s.inExternalMod; //NS:
+    gO.nameExternalMod = s.nameExternalMod; //NS:
+
+    gO.isCommon = s.isCommon; //NS2:
+    gO.nameCommon = s.nameCommon; //NS2:
+    gO.structCaption = s.structCaption; //DC3:
 
     return gO;
 
@@ -2464,7 +2518,8 @@ function getDefDimIndExpr(d) {
 }
 
 //----------------------------------------------------------------------------
-//MPI: Starting index of a dim -- usually 'startExt'
+// MPI: Starting index of a dim -- usually 'startExt'
+// TODO: Introduce a StartLiteral type and use it here instead of Literal
 //----------------------------------------------------------------------------
 function getDefIndStartExprExt(g, d) {
 
@@ -2478,7 +2533,8 @@ function getDefIndStartExprExt(g, d) {
 }
 
 //----------------------------------------------------------------------------
-//MPI: Ending index of a dim -- usually 'endExt'
+// MPI: Ending index of a dim -- usually 'endExt'
+// TODO: Introduce a StartLiteral type and use it here instead of Literal
 //----------------------------------------------------------------------------
 function getDefIndEndExprExt(g, d) {
 
@@ -2506,6 +2562,8 @@ function getDefIndStartExpr() {
 
 //----------------------------------------------------------------------------
 // Ending index of a dim -- usually 'end'
+// TODO: Set ExprObj.grid to the Literal so that an endname is always 
+//       associated with a grid. Caller should do this.
 //----------------------------------------------------------------------------
 function getDefIndEndExpr(d) {
 
@@ -2675,6 +2733,7 @@ window.onkeypress = myKeyPress;
 //----------------------------------------------------------------------------
 function myKeyDown(evt) {
 
+    var isTextTag = false;
 
     // Disable default back-space action of the browser
     // Allow backsapce only when text is editable
@@ -2688,7 +2747,7 @@ function myKeyDown(evt) {
 	//
 	var isTextTag = (tag == 'INPUT' || tag == 'TEXTAREA');
 
-        // if contenteditable OR a text input element
+        // if contenteditable OR a text input element (or comment)
         //
         if (!(elem.isContentEditable || isTextTag)) {
             evt.preventDefault();
@@ -2718,7 +2777,7 @@ function myKeyDown(evt) {
         // contenteditable -- if it is contenteditable, the default editing
         // will happen
         //
-        if (!(evt.target.isContentEditable)) {
+        if (!(evt.target.isContentEditable) && !isTextTag ) {
             handleBackSpace();
 
             // Don't allow default action on backspace (going back to prev page)
@@ -2778,9 +2837,23 @@ function myKeyPress(evt) {
         (sO.stageInStep < StageInStep.ConfigDone))
         return;
 
+    // Check whether the user is editing a comment/text area, etc
+    //
+    var elem = evt.srcElement || evt.target;  // src/target element
+    var tag = elem.tagName;
 
-    if (evt.target.isContentEditable)
-        return;
+    // Note: cannot use 'INPUT' since index editing uses 'INPUT' tags
+    //
+    var isTextTag = (tag == 'TEXTAREA');
+    // var isTextTag = (tag == 'INPUT' || tag == 'TEXTAREA');
+
+    //
+    // if contenteditable OR a text input element (or comment)
+    //    
+    if (elem.isContentEditable || isTextTag) {
+	// alert("Return! tag = " + tag);
+	return;
+    }
 
 
     // STEP 1: Handle number input
@@ -2945,6 +3018,7 @@ function redrawAfterKey() {
 // (2) as a grid name in current function
 // (3) as a let/index var name in current step
 // (4) as a keyword/reserved-word
+// (5) TODO: column/row/... title
 //----------------------------------------------------------------------------
 function isExistingName(mO, fO, sO, name) {
 
@@ -3432,6 +3506,42 @@ function loadFileInputLibrary(pO) {
     //
     fM.allFuncs.push(fPI);
 
+
+    //DC99:
+    name = "loadCSRFile";
+    fPI = new FuncObj(true);
+    fPI.funcCallExpr = new ExprObj(false, ExprType.LibFuncCall, name);
+    fPI.isLibFunc = true;
+    //
+    // Add args.
+    //
+    arg1 = new ExprObj(true, ExprType.GridRef, 'Scalar_Grid');
+    arg2 = new ExprObj(true, ExprType.GridRef, 'Scalar_Grid');
+    var arg3 = new ExprObj(true, ExprType.GridRef, '1DGrid');
+    var arg4 = new ExprObj(true, ExprType.GridRef, '1DGrid');
+    var arg5 = new ExprObj(true, ExprType.GridRef, '3DGrid');
+    var arg6 = new ExprObj(true, ExprType.GridRef, '3DGrid');
+    var arg7 = new ExprObj(true, ExprType.GridRef, '2DGrid');
+    var arg8 = new ExprObj(true, ExprType.GridRef, '2DGrid');
+    var arg9 = new ExprObj(true, ExprType.GridRef, '2DGrid');
+    var arg10 = new ExprObj(true, ExprType.GridRef, '1DGrid');
+    fPI.funcCallExpr.addSubExpr(arg1);
+    fPI.funcCallExpr.addSubExpr(arg2);
+    fPI.funcCallExpr.addSubExpr(arg3);
+    fPI.funcCallExpr.addSubExpr(arg4);
+    fPI.funcCallExpr.addSubExpr(arg5);
+    fPI.funcCallExpr.addSubExpr(arg6);
+    fPI.funcCallExpr.addSubExpr(arg7);
+    fPI.funcCallExpr.addSubExpr(arg8);
+    fPI.funcCallExpr.addSubExpr(arg9);
+    fPI.funcCallExpr.addSubExpr(arg10);
+
+    // Push the added function to the Math module
+    //
+    fM.allFuncs.push(fPI);
+
+
+
     // Add module specific object (extends ModuleObj). This object handles
     // all file input specific functions
     //
@@ -3541,12 +3651,27 @@ function loadMathLibrary(pO) {
 
             var arg1 = new ExprObj(true, ExprType.Number, 'number');
             fPI.funcCallExpr.addSubExpr(arg1);
+
         }
 
         // Push the added function to the Math module
         //
         mM.allFuncs.push(fPI);
     }
+
+
+    //DC4: For supporting sum(GRID, START, END).
+    var name = "sum";
+    var fPI = new FuncObj(true);
+    fPI.funcCallExpr = new ExprObj(false, ExprType.LibFuncCall, name);
+    fPI.isLibFunc = true;
+    var arg1 = new ExprObj(true, ExprType.GridRef, '1D Grid');
+    fPI.funcCallExpr.addSubExpr(arg1);
+    arg1 = new ExprObj(true, ExprType.Number, 'start');
+    fPI.funcCallExpr.addSubExpr(arg1);
+    arg1 = new ExprObj(true, ExprType.Number, 'end');
+    fPI.funcCallExpr.addSubExpr(arg1);
+    mM.allFuncs.push(fPI);
 
 
     // Add the Math module to the program object
@@ -3709,7 +3834,10 @@ function addNewModule() {
 // Our own implementation of assert
 //----------------------------------------------------------------------------
 function assert(cond, msg) {
-    if (!cond) alert("ASSERT FAIL: " + msg);
+    if (!cond) { 
+	alert("ASSERT FAIL: " + msg);
+	throw 'Breakpoint for assert reached';
+    }
 }
 
 
@@ -3771,9 +3899,12 @@ function clearTip() {
 //----------------------------------------------------------------------------
 function getHexColor(val, max) {
 
-    var val2 = max - val;    // difference from max 
-    var HiC = 255;           // highest color value (lightest color)
-    var LowC = 75;           // lowest color value (darkest color)
+    if (!Number.isFinite(val))     // if error
+	return "ff0000";           // return red
+
+    var val2 = max - val;          // difference from max 
+    var HiC = 255;                 // highest color value (lightest color)
+    var LowC = 75;                 // lowest color value (darkest color)
     
     var x = LowC + (val2*(HiC  - LowC))/max
 
@@ -3835,7 +3966,7 @@ function drawProgStructHead() {
     //
     var onc = " onchange='recordStepTitle(this)' ";
     var title = "<textarea rows='1' cols='30' class='stepTitle' " +
-        " height=16px maxlength=40" +
+        " height=16px maxlength=80" +
 
         "id='StepTitle' " + onc + ">" + titletxt + "</textarea>";
 
@@ -3847,6 +3978,9 @@ function drawProgStructHead() {
     //
     str += "</span>" + title + comment;
 
+    // have we finished grid configuration
+    //
+    var conf_done = (sO.stageInStep >= StageInStep.ConfigDone);
 
     // STEP: Start a new span that floats on to the right of the page
     //
@@ -3854,17 +3988,17 @@ function drawProgStructHead() {
     var onc = "";
 
     // show parallelism meter only if configuration is done AND showing data
+    // Further, do not show parallelism meter in the header step
     //
-    if ((sO.stageInStep >= StageInStep.ConfigDone) && pO.showData) {
+    if (conf_done && pO.showData && !sO.isHeader) {
 
         str += getParallelismMeterStr();
-
-    } // if config done AND showing data
-
+    } 
 
     // We can create a new step if config is done OR if we are in a header
+    // AND if not showing data
     //
-    if ((sO.stageInStep >= StageInStep.ConfigDone) || sO.isHeader) {
+    if (!pO.showData && (conf_done || sO.isHeader)) {
 
         onc = " onclick='newNextStep(" + fO.curStepNum + ")' ";
         onc += " class='headbut' ";
@@ -3873,9 +4007,10 @@ function drawProgStructHead() {
     }
 
     // We can duplicate a step only after completing it.
-    // Note: We cannot duplicate the function header step
+    // Note: We cannot duplicate the function header step.
+    // Note: do not show duplicate step while showing data
     //
-    if ((sO.stageInStep >= StageInStep.ConfigDone) && !sO.isHeader) {
+    if (!pO.showData && conf_done && !sO.isHeader) {
         onc = " onclick='duplicateStep()' ";
         onc += " class='headbut' ";
         str += "<input type='button' value='Duplicate Step' " + onc + ">";
@@ -3883,8 +4018,9 @@ function drawProgStructHead() {
 
     // We can cancel/delete a step only after starting to configure it
     // We can *never* cancel a header step
+    // Note: Don't show this option while showing data
     //
-    if ((sO.stageInStep >= StageInStep.New) && !sO.isHeader) {
+    if ((sO.stageInStep >= StageInStep.New) && !sO.isHeader && !pO.showData) {
         onc = " onclick='deleteStep()' ";
         onc += " class='headbut' ";
         str += "<input type='button' value='Delete Step' " + onc + ">";
@@ -3922,9 +4058,10 @@ function findGridGetDynSize(fO, name) {
 
 }
 
-
+//----------------------------------------------------------------------------
 // Parse the expression in a foreach loop, to evaluate start,end,
 // step (in Java) so as to get values for parallelism meter.
+//----------------------------------------------------------------------------
 function getRexprVal(fO, rexpr, exprArr) {
 
     var retVal = "";
@@ -3954,7 +4091,8 @@ function getRexprVal(fO, rexpr, exprArr) {
 
 	} else if (exprArr.exprArr[i].type == ExprType.Concat) {
 
-	    retVal += "parseInt(" + getRexprVal(fO, rexpr, exprArr.exprArr[i]) + ") + ";
+	    retVal += "parseInt(" + 
+		getRexprVal(fO, rexpr, exprArr.exprArr[i]) + ") + ";
 
 	} else if (exprArr.exprArr[i].type == ExprType.GridCell) {
 
@@ -3989,9 +4127,7 @@ function getParallelismMeterStr() {
     var fO = CurFuncObj;
     var sO = CurStepObj;
 
-
-    var str =
-        "<table class='parallelMeter'><tr><td>Parallelism:</td><td>";
+    var str = "";
 
     // Code to get the information on parallelization AFTER 
     // parallelism  analysis has been run and Pragma_str has been 
@@ -4097,11 +4233,18 @@ function getParallelismMeterStr() {
     } // if foreach
 
 
-    // TODO: Here calculate percentage of parallelism and show below
+    // Title of the parallelism meter
     //
-    var parallelism_aval = "";
-    str += "</td></table>";
+    var title  = "<table class='parallelMeter'><tr><td>Parallelism:</td><td>";
 
+    // When the step does not cotain an index range, there is no parallelism
+    // detected. Specify "None" in those cases
+    //
+    if (str.length == 0) {
+	str = "None";
+    } 
+    //
+    str = title + str + "</td></table>";
 
     return str;
 }
@@ -4190,10 +4333,13 @@ function getMenuBodyStr() {
         ")'>Open</td></tr>" + 
 
 	"<tr><td onclick='menuClicked(" + MMenu.Save +
-        ")'>Save</td></tr>" + 
-
+        ")'>Save</td></tr>";
+  
+	/*	
 	"<tr><td onclick='menuClicked(" + MMenu.UnusedGrids +
         ")'>Unused&nbsp;Grids</td></tr>";
+	*/
+	
 
     // if already showing data/color, display 'Hide data' menu item.
     // Else, show 'show Data' item
@@ -4227,8 +4373,10 @@ function getMenuBodyStr() {
         ")'>Show&nbsp;Code</td></tr>"
     */
 
+    /*
     str += "<tr><td onclick='menuClicked(" + MMenu.AddModule +
         ")'>New&nbsp;Module</td></tr>"
+    */
 
     /*
     str += "<tr><td onclick='menuClicked(" + MMenu.ShowCcode + 
@@ -4238,7 +4386,7 @@ function getMenuBodyStr() {
     */
 
     str += "<tr><td onclick='menuClicked(" + MMenu.ShowAutotuneMenu +
-        ")'>Auto-tune menu</td></tr>"
+        ")'>Generate code...</td></tr>"
         //AT: Used for showing the auto-tune menu page.
 
     /*
@@ -4246,47 +4394,47 @@ function getMenuBodyStr() {
     	")'>Show&nbsp;Fortran&nbsp;Code</td></tr>"
         //KK: Used for showing relevant menu item when Main Menu is clicked: 
         //FORTRAN generated code
-        
+    */
+
+    /*        
     str += "<tr><td onclick='menuClicked(" + MMenu.ShowFortranCodeParallel + 
     	")'>Show&nbsp;Parallel&nbsp;Fortran&nbsp;Code</td></tr>"
     	//KK: Used for showing relevant menu item when Main Menu is clicked: 
     	//parallel FORTRAN generated code
     */
 
-    
+   
+     
     str += "<tr><td onclick='menuClicked(" + MMenu.SaveCcode +
         ")'>Save&nbsp;C&nbsp;Code</td></tr>";
+    
 
+    /*
     str += "<tr><td onclick='menuClicked(" + MMenu.SaveCcodeParallel +
         ")'>Save&nbsp;Parallel&nbsp;C&nbsp;Code</td></tr>";
+    */
 
+    /*
     //MPI
-    //str += "<tr><td onclick='menuClicked(" + MMenu.SaveMPICcode +
-    //    ")'>Save&nbsp;MPI C&nbsp;Code</td></tr>";
+    str += "<tr><td onclick='menuClicked(" + MMenu.SaveMPICcode +
+        ")'>Save&nbsp;MPI C&nbsp;Code</td></tr>";
+    */
 
     
     str += "<tr><td onclick='menuClicked(" + MMenu.SaveFortranCode +
         ")'>Save&nbsp;Fortran&nbsp;Code</td></tr>"
+    
 
+    /*
     str += "<tr><td onclick='menuClicked(" + MMenu.SaveFortranCodeParallel +
         ")'>Save&nbsp;Parallel&nbsp;Fortran&nbsp;Code</td></tr>";
-    
+    */
+
+    /*    
     str += "<tr><td onclick='menuClicked(" + MMenu.SaveOCLcode +
     	")'>Save&nbsp;OpenCL code</td></tr>" +
 	"</table>"; + "</span>";
-
-    /*
-    str += "<tr><td onclick='menuClicked(" + MMenu.RunOnCloud0 +
-        ")'>Run workflow online (serial)</td></tr>"
-
-    str += "<tr><td onclick='menuClicked(" + MMenu.RunOnCloud1 +
-        ")'>Run workflow online (parallel)</td></tr>"
-
-    str += "<tr><td onclick='menuClicked(" + MMenu.Autotune +
-        ")'>Autotune</td></tr>" +    
-	"</table>"; + "</span>";
     */
-
 
     // Get the bounding rectangle of 'head1'
     // and use that bottom/left position to place the body of the menu
@@ -4374,7 +4522,7 @@ function menuClicked(item) {
             saveCstr(1, 0);
             break;  
 
-	//MPI:
+	//MPI: Not supported in this version
         case MMenu.SaveMPICcode:
             saveMPICstr(0, 0);
             break; 
@@ -4383,23 +4531,12 @@ function menuClicked(item) {
             saveFortranStr(1, 0);
             break;
 
+	//OCL: Not supported in this version
 	case MMenu.SaveOCLcode:
-	    saveOCLstr(1, 0); //OCL:
+	    saveOCLstr(1, 0); 
 
         case MMenu.AnalyzeParallelism:
             analyzeParallelismAll(CurFuncObj, 0);
-            break;
-
-        case MMenu.RunOnCloud0:
-            run_on_cloud(0);
-            break;
-
-        case MMenu.RunOnCloud1:
-            run_on_cloud(1);
-            break;
-
-        case MMenu.Autotune:
-            autotune();
             break;
 
         case MMenu.UnusedGrids:
@@ -5507,6 +5644,36 @@ function initHtmlGridIds() {
     document.getElementById('src9Menu').innerHTML = "";
     document.getElementById('src10Menu').innerHTML = "";
 
+    //DC6: To support more source grids per step.
+    //TODO: Can this be dynamic?
+    document.getElementById('src11Menu').innerHTML = "";
+    document.getElementById('src12Menu').innerHTML = "";
+    document.getElementById('src13Menu').innerHTML = "";
+    document.getElementById('src14Menu').innerHTML = "";
+    document.getElementById('src15Menu').innerHTML = "";
+    document.getElementById('src16Menu').innerHTML = "";
+    document.getElementById('src17Menu').innerHTML = "";
+
+    document.getElementById('src18Menu').innerHTML = "";
+    document.getElementById('src19Menu').innerHTML = "";
+    document.getElementById('src20Menu').innerHTML = "";
+    document.getElementById('src21Menu').innerHTML = "";
+    document.getElementById('src22Menu').innerHTML = "";
+    document.getElementById('src23Menu').innerHTML = "";
+    document.getElementById('src24Menu').innerHTML = "";
+    document.getElementById('src25Menu').innerHTML = "";
+    document.getElementById('src26Menu').innerHTML = "";
+    document.getElementById('src27Menu').innerHTML = "";
+    document.getElementById('src28Menu').innerHTML = "";
+    document.getElementById('src29Menu').innerHTML = "";
+    document.getElementById('src30Menu').innerHTML = "";
+    document.getElementById('src31Menu').innerHTML = "";
+    document.getElementById('src32Menu').innerHTML = "";
+    document.getElementById('src33Menu').innerHTML = "";
+    document.getElementById('src34Menu').innerHTML = "";
+
+
+
 
     document.getElementById('GridConfMenu').innerHTML = "";
     document.getElementById('codeWindow').innerHTML = "";
@@ -5529,6 +5696,16 @@ function deleteStep() {
     if (fO.curStepNum == 0) {
         alert("Cannot remove function header step");
         return;
+    }
+
+    // if we have already started configuring a new grid but not yet completed
+    // it, we have to pop the newly added grid -- this is similar to pressing
+    // back button while in config -- i.e., see configBack()
+    //
+    if ((sO.stageInStep >= StageInStep.ConfigStarted) && !fO.isTemplateScope &&
+        (sO.stageInStep <= StageInStep.ConfigDone)) {
+
+	popNewGrid();
     }
 
     // Remove any highlighted expression and grid highlight from the 
@@ -6069,10 +6246,11 @@ function allocDataArraysOfStep(fO, sO) {
 
 //----------------------------------------------------------------------------
 // Create initial arrays
+// If isDynCall is true, this is called by *auto-generated* java script code
 //----------------------------------------------------------------------------
-function createArrays(gO) {
+function createArrays(gO, isDynCall) {
 
-    logMsg("creating arrays for grid: " + gO.caption);
+    logMsg("creating arrays for grid: " + gO.caption + " dyn:" + isDynCall);
 
     // logMsg("act size of dim 0:" + gO.dimActSize[0]);
 
@@ -6083,19 +6261,38 @@ function createArrays(gO) {
         return;
     }
 
+    // If this function is not called by auto-generated code AND
+    // if this gO has dynamic sizes, don't do anything. This is because
+    // dynamic arrays must be creaed at each step (while auto-generated
+    // code is executing), using dynamic sizes
+    //
+    if (!isDynCall && hasDynSize(gO)) {
+	logMsg("Skipping createArrays @ start becase gO has dynamic sizes");
+	return;
+    }
+
     // Create a new array of dimension sizes and make sure that
     // the number of *columns* is at the 0th index. This is because
     // gO.data array MUST be in row-major (JavaScript) index order
     //
-    var modarr = gO.dimActSize.slice(0);
-    modarr[0] = gO.dimActSize[ColDimId];
-    modarr[1] = gO.dimActSize[RowDimId];
+    // Note: gO.dimActSize.length can be greater than gO.numDims, when 
+    //       a grid has only 1 dimension. gO.numDims contain the correct 
+    //       value.
     //
+    var modarr = gO.dimActSize.slice(0);
+
+    logMsg(" -- # of dims:" + gO.dimActSize.length);
+
+    if (gO.numDims >= 0) 
+	modarr[0] = gO.dimActSize[ColDimId];
+    if (gO.numDims >= 1) 
+	modarr[1] = gO.dimActSize[RowDimId];
+
     // First check that each value is an integer because we get user input
     //
-    for (var i = 0; i < modarr.length; i++) {
+    for (var i = 0; i < gO.numDims; i++) {
         assert((typeof modarr[i] === "number") && (modarr[i] % 1 == 0),
-            "Non integer dimension");
+            "Non integer size " + modarr[i] + " in dim " + i);
     }
 
     // Do allocation
@@ -6189,7 +6386,7 @@ function getMaxDataVal(dim, arr, mval) {
 
     if (dim == 0) {
         for (var i = 0; arr && (i < arr.length); i++)
-            if (arr[i] > mval)
+            if (Number.isFinite(arr[i]) && arr[i] > mval)
                 mval = arr[i]; // set max val
     } else {
         for (var i = 0; arr && (i < arr.length); i++) {
@@ -6384,10 +6581,14 @@ function beginNewGridConfig(hasColTitles, hasRowTitles,
     //
     CurStepObj.isOutGridNew = true;
 
-    //CurStepObj.configStarted = true;  // we are starting configuration
-
+    // We add permenently add the newly created grid. This is done because
+    // other functions may want to access this grid -- e.g., when a 
+    // title/tab name is changed. However, if we cancel configuring this grid
+    // by going back or deleting the step, we have to pop these additions.
+    // See configBack()
+    //
     CurFuncObj.allGrids.push(NewGridObj);    // add grid Obj to function
-    CurStepObj.addGridId(newGId);            // add putput grid to current step
+    CurStepObj.addGridId(newGId);            // add output grid to current step
 
 
     var ngO = NewGridObj;              // create a shortcut
@@ -6455,8 +6656,8 @@ function drawSrcMenuTable() {
         " width=60px height=75px> <BR>Existing Grid</td>";
 
     str +=
-        "<td class='clickText' onclick='removeMenu()'> Cancel </td></tr>";
-
+        "<td class='clickText' onclick='removeMenu()'> Done </td></tr>";
+    //DC4: Changed "Cancel" to "Done".
 
     // Draw a title cell under the menu at the bottom
     //
@@ -6554,10 +6755,21 @@ function selectExistingGrid() {
         if ( /*isPresentInAPrevStep(gridO, sO) && */ !isPresentInStep(
                 gridO, sO)) {
 
-            str += "<option "; //value='" + i + "'";
-            str += ">" + gridO.caption + "</option>";
+	    //DC6: "If" statement used to AVOID re-adding in the drop-down 
+	    //	   menu GLOBAL grids that have been added as source grids 
+	    //     in previous steps of current function (in which case a 
+	    //     clone is created).
+	    //TODO: Why was the clone needed in the first place? Remove?
+	    //TODO: Show Data doesn't work (didn't before either!)
+	    //if (gridO.constructor.name != "cloneGridObj") {
+	    if (gridO.globalRefId == -1) {
 
-            ExistingGridList.push(gridO);
+                str += "<option "; //value='" + i + "'";
+                str += ">" + gridO.caption + "</option>";
+		ExistingGridList.push(gridO);
+
+	    }
+
         }
     }
 
@@ -6966,6 +7178,7 @@ function existSelDone() {
 	    //         Note that we don't add gOsel to function becaue it
 	    //         is already present in function (fO.allGrids[])
 
+	    assert(gOsel, "Null selected grid"); 
 	    var niO = new IndexObj(gOsel);               // new index obj
 	    //
 	    CurStepObj.addGridId(ind);       // add grid ID to step
@@ -7040,7 +7253,9 @@ function drawGridConfigMenu(gO) {
 	str += "<tr><th>Dimension</th>" //+ "<th>Name</th>" 
 	    + "<th>Displayed Size</th> "
 	    + "<th>Actual Size</th> <th>Titles?</th> <th>Data Types</th>"
+	    /* TODO: Enable later for MPI support
 	    + "<th>Extended?</th>"
+	    */
 	    + "</tr>";
 
 
@@ -7051,15 +7266,25 @@ function drawGridConfigMenu(gO) {
 	    var disp = "<input type='number' " + sz + onc
 		+ " value='" + gO.dimShowSize[d] + "'>";
 
-	    sz = " style='width:60px' ";           // actual size
+	    sz = " style='width:80px' ";           // actual size
 	    if (gO.dimHasTitles[d]) sz += " disabled ";
 	    onc = " onchange='updateDimSize(" + d + ",this.value,1)' ";
 	    var actsz = gO.dimDynSize[d] ? gO.dimDynSize[d] : gO.dimActSize[d];
 
 	    var act = "<input type='text' " + sz + onc
 		+ " value='" + actsz + "'>";
-	    act += " <img src='images/2D_array.jpg' "      // link to grid
-		+ "width=15px height=20px onclick='pickActSz(" + d + ")'>";
+	
+	    // Display the small 2D grid icon to select a dynamic actual
+	    // size. Do this only when the dim does not have titles
+	    //
+	    if (!gO.dimHasTitles[d]) {
+		act += " <img src='images/2D_array.jpg' "      // link to grid
+		    + "width=15px height=20px onclick='pickActSz(" + d + ")'>";
+	    } else {
+		// empty image to keep the space. TODO: remove empty square
+		//
+		act += " <img width=15px height=20px style='border-width:0px'>";
+	    }
 
 	    onc = " onclick='changeDimHasTitles(" + d + ", this.checked)' ";  
 	    if (gO.dimHasTitles[d]) onc += " checked ";
@@ -7085,7 +7310,9 @@ function drawGridConfigMenu(gO) {
 		+ "<td>" + act + "</td>"            // actual size text box
 		+ "<td>" + titles + "</td>"         // has titles check box 
 		+ "<td>" + types + "</td>"          // has types check box
+		/* TODO: Enable later for MPI support
 	 	+ "<td>" + dimIsExtended + "</td>"  // is Extended check box
+		*/
 	    ;
 	}
 
@@ -7134,6 +7361,34 @@ function drawGridConfigMenu(gO) {
     var idata = "<input type='checkbox'" + onc + ">" +
         "Enable manual entering of initial data";
 
+
+    //NS: For reusing vars from existing modules
+    onc = " onclick='markInExternalMod(this.checked)' ";
+    if (gO.inExternalMod) onc += " checked ";
+    var pap = "<input type='checkbox'" + onc + ">" +
+	"Global variable exists in existing module";
+    //onc = " onclick='addNameExternalMod()'  ";
+    
+
+    //NS2: For enabling common vars (in Fortran)
+    // TODO: Takes away from the high-level generality
+    //	     Use in an "advanced" mode only?
+    onc = " onclick='markInCommon(this.checked)' ";
+    if (gO.isCommon) onc += " checked ";
+    var pap2 = "<input type='checkbox'" + onc + ">" +
+	"Grid belongs in COMMON block";
+
+
+    //DC3: For enabling a grid to "belong" to a struct/TYPE
+    // TODO: Takes away from the high-level generality
+    //	     Use in an "advanced" mode only?
+    onc = " onclick='markStructCaption(this.checked)' ";
+    if (gO.structCaption != null) onc += " checked ";
+    var pap3 = "<input type='checkbox'" + onc + ">" +
+	"Grid belongs to existing struct";
+
+
+    /* TODO: Enable later for MPI support
     //MPI:
     onc = " onclick='markGlobal(this.checked)' ";
     if (gO.isGlobal) onc += " checked ";
@@ -7147,15 +7402,44 @@ function drawGridConfigMenu(gO) {
     if (!gO.isGlobal) onc = " disabled ";
     var idistr = "<input type='checkbox'" + onc + ">" +
         "Enable distribution of data (MPI)";
+    */
 
     str += "<tr><td  class='botcheck' colspan=" + totCols + ">" + idata +
         "</td></tr>";
 
+
+    //DC4: Added flag for code integration mode.
+    //NS: Only applies to the global function
+    if (CurFuncObj.isGlobal && CodeIntegrationMode) {
+    
+	str += "<tr><td class='botcheck' colspan=" + totCols + ">" + pap +
+	       "</td></tr>";
+
+    }
+
+    //DC4: Added flag for code integration mode.
+    //DC3: Only applies if grid in the global function and existing module.
+    if (CurFuncObj.isGlobal && gO.inExternalMod && CodeIntegrationMode) {
+        str += "<tr><td  class='botcheck' colspan=" + totCols + ">" + pap3 +
+               "</td></tr>";
+    }
+
+    //DC4: Added flag for code integration mode.
+    //NS2: Only applies to the global function (for common blocks).
+    if (CurFuncObj.isGlobal && CodeIntegrationMode) {
+
+        str += "<tr><td  class='botcheck' colspan=" + totCols + ">" + pap2 +
+               "</td></tr>";
+    }
+
+
+    /* TODO: Enable later for MPI support
     //MPI:
     str += "<tr><td  class='botcheck' colspan=" + totCols + ">" + iglob +
         "</td></tr>";
      str += "<tr><td  class='botcheck' colspan=" + totCols + ">" + idistr +
         "</td></tr>";
+    */
 
     var msg = "Configure New Output Grid";
     //
@@ -7280,6 +7564,8 @@ function drawGridReConfigMenu(gO) {
     if (gO.hasInitData) onc += " checked ";
     var idata = "<input type='checkbox'" + onc + ">" +
         "Enable manual entering of initial data";
+
+    // TODO: Have to do for all other checkboxes (e.g., MPI)
 
     str += "<tr><td  class='botcheck' colspan=" + totCols + ">" + idata +
         "</td></tr>";
@@ -7434,7 +7720,7 @@ function drawGridDimExtendMenu(gO) {
 function pickActSz(dim) {
 
     var fO = CurFuncObj;
-    var str = "<table> <tr><td><div id='" + PreviewHtmlGridId +
+    var str = "<table><tr><td><div id='" + PreviewHtmlGridId +
         "'> Select Actual Size of Grid </div></td></tr>";
 
     // Create the list of all grids for the drop down box
@@ -7456,6 +7742,7 @@ function pickActSz(dim) {
             grids_added++;
         }
     }
+
     //
     str += "</select>";
 
@@ -7573,6 +7860,69 @@ function markInitData(checked) {
 
 }
 
+
+//NS:
+//----------------------------------------------------------------------------
+// If a grid is existing in external module, mark as such
+// Prompt the user to give name of existin module for which current exists
+//----------------------------------------------------------------------------
+function markInExternalMod(checked) {
+
+    // Toggle accordingly
+    NewGridObj.inExternalMod = checked;
+
+    // If true, ask user for name
+    if (checked) {
+
+        var modname = prompt("Name of new function", "Existing module name");
+
+        // TODO: Add checks! And warning to make sure.
+        NewGridObj.nameExternalMod = modname;
+
+    } else {
+
+	NewGridObj.nameExternalMod = "";
+	NewGridObj.structCaption = null; //DC3: Also removing struct name. This
+					//     option is only available for code
+					//     integration.
+
+    }
+
+    reDrawConfig();
+
+}
+
+
+//NS2:
+//----------------------------------------------------------------------------
+// If a grid is to belong in a COMMON block (Fortran) mark as such
+// Prompt the user to give name of COMMON block in which current belongs
+//----------------------------------------------------------------------------
+function markInCommon(checked) {
+
+    // Toggle accordingly
+    NewGridObj.isCommon = checked;
+
+    // If true, ask user for COMMON name
+    if (checked) {
+
+        var commonName = prompt("Name of new COMMON block", "common_block");
+
+        // TODO: Add checks! And warning to make sure.
+        NewGridObj.nameCommon = commonName;
+
+    } else {
+
+	NewGridObj.nameCommon = "";
+
+
+    }
+
+    reDrawConfig();
+
+}
+
+
 //----------------------------------------------------------------------------
 //MPI: If a grid is marked as global, mark as such
 //----------------------------------------------------------------------------
@@ -7597,6 +7947,36 @@ function markGlobal(checked) {
     reDrawConfig();
 
 }
+
+
+//DC3:
+//----------------------------------------------------------------------------
+// If a grid belongs to a struct, associate the grid to that struct name, so
+// this is taken appropriately into account during code generation
+//----------------------------------------------------------------------------
+function markStructCaption(checked) {
+
+    // Toggle accordingly
+    //NewGridObj.structCaption = checked;
+
+    // If true, ask user for struct name
+    if (checked) {
+
+        var structCaption = prompt("Name of existing struct variable in which grid belongs", "struct_name");
+
+        // TODO: Add checks! And warning to make sure.
+        NewGridObj.structCaption = structCaption;
+
+    } else {
+
+	NewGridObj.structCaption = null;
+
+    }
+
+    reDrawConfig();
+
+}
+
 
 //----------------------------------------------------------------------------
 //MPI: If a grid is marked as distributed, mark as such
@@ -7626,7 +8006,12 @@ function markDistributed(checked) {
 // Genrate the default tab name 
 //----------------------------------------------------------------------------
 function getTabName(newdim, t) {
-    return (DefDimTitleRoot + (newdim - 2) + "" + t);
+
+    if (newdim < 2)
+        return (DefTitleRoots[newdim] + "" + t);
+    else
+        return (DefDimTitleRoot + (newdim - 2) + "" + t);
+
 }
 
 
@@ -7731,6 +8116,12 @@ function updateDimSize(dim, dim_size, isActual) {
     } else {                           // updating actual size
 
         gO.dimActSize[dim] = dimsz;
+
+	// if the user reduced the actual size to be smaller than displayed
+	// size, call this function again to reduce displayed size as well
+	//
+	if (dimsz < gO.dimShowSize[dim])
+	    updateDimSize(dim, dimsz, false);
     }
 
 
@@ -7747,6 +8138,12 @@ function changeDimHasTitles(dim, state) {
 
     var gO = NewGridObj;
     gO.dimHasTitles[dim] = state;
+
+    // if the titles were removed AND if this dim has data types as well,
+    // remove those data types
+    //
+    if (!state && (gO.typesInDim == dim))
+        gO.typesInDim = -1;
 
     // Pick the opposite state for dimHasIndices -- i.e., 
     // (1) If dim has titles, it does not have indices
@@ -7775,8 +8172,11 @@ function changeDimHasTypes(dim, state) {
 
     if (state)
         gO.typesInDim = dim;
-    else
+    else {
+
         gO.typesInDim = -1;
+
+    }
 
     reDrawConfig();
 
@@ -7965,6 +8365,23 @@ function configDone() {
 //----------------------------------------------------------------------------
 function configBack() {
 
+    popNewGrid();
+
+    // Draw the new grid configuration menu to pick an option 
+    // NOTE: We may not be able to call the following function always
+    //       May need an if condition check to figure out which function
+    //       to call after 'Done' is pressed (state machine)
+    //
+    drawNewGridMenu();
+
+}
+
+//----------------------------------------------------------------------------
+// Pop a newly added grid (NewGridObj). This is called while we have started
+// a new grid config (StageInStep.ConfigStarted) but have not finished it
+//----------------------------------------------------------------------------
+function popNewGrid() {
+
     // Clear config menu
     //
     var menuId = "GridConfMenu";                  // grid config menu
@@ -7976,16 +8393,8 @@ function configBack() {
 
     CurFuncObj.allGrids.pop();                   // pop from function
 
-
     CurStepObj.stageInStep = StageInStep.New;
     clearTip();
-
-    // Draw the new grid configuration menu to pick an option 
-    // NOTE: We may not be able to call the following function always
-    //       May need an if condition check to figure out which function
-    //       to call after 'Done' is pressed (state machine)
-    //
-    drawNewGridMenu();
 
 }
 
@@ -8028,7 +8437,15 @@ function getTypeSelectStr(ind, selected_index, htmlId) {
 
         str = "<select onchange='changeType(this," + ind + ",\"" + htmlId +
             "\")'>";
-        for (var i = 0; i < TypesArr.length; i++) {
+
+	//DC5: Only show 'void' data type in function header
+	// TODO: Also, only allow for return value, not the rest grids
+	var typesCount = TypesArr.length - 1;
+	if (CurStepObj.isHeader)
+	    typesCount++;
+
+	//DC5: Loop end value
+        for (var i = 0; i < typesCount; i++) {
             str += "<option value='" + i + "' ";
             if (i == selected_index)
                 str += "selected";
@@ -8229,8 +8646,7 @@ function drawGrid(gridObj, indObj, htmlId, edit) {
                     ")\" ";
                 onc += " onmouseup=\"gridIndMouseUp(" + onc_args + ")\" ";
 
-                var istr = (showData) ? t : getIndExprStr(iO.dimIndExprs[
-                    d][t]);
+                var istr = (showData) ? t : getIndExprStr(iO.dimIndExprs[d][t]);
                 //
                 // Draw left/right arrows for scrolling a larger matrix
                 //
@@ -9259,6 +9675,7 @@ function markDeletedIndexExpr(gId, dim, pos) {
 //----------------------------------------------------------------------------
 function getGridConfContextMenu(htmlId, gOconst) {
 
+    var sO = CurStepObj;
 
     // if this is a constant grid, display a padlock 
     //
@@ -9268,7 +9685,15 @@ function getGridConfContextMenu(htmlId, gOconst) {
             ")' ";
         //
         lock = "<img src='images/padlock.png' width=15px height=15px " +
-            " title='grid is read-only in this step'" + onc + ">";
+            " title='grid is read-only'" + onc + ">";
+
+    } else if (sO.isHeader) {
+
+	var onc = " onclick='lockGrid(\"" + htmlId + "\", " + gOconst +
+            ")' ";
+        //
+        lock = "<img src='images/unlocked.png' width=15px height=15px " +
+            " title='grid can be modified'" + onc + ">";
     }
 
     // Put the grid config (gear wheel) button
@@ -9285,19 +9710,9 @@ function getGridConfContextMenu(htmlId, gOconst) {
 
 
 //----------------------------------------------------------------------------
-// Shows grid unlock menu
+// Locks a grid in header
 //----------------------------------------------------------------------------
 function unlockGrid(htmlId, isConst) {
-
-    /*
-    var ret = prompt("Do you want to make this grid writable?", "");
-
-    // if the user pressed cancel, just return
-    //
-    if (!ret) 
-	return;
-    */
-
 
     var fO = CurFuncObj;
     var sO = CurStepObj;
@@ -9310,6 +9725,31 @@ function unlockGrid(htmlId, isConst) {
     //
     if (isConst && sO.isHeader) {
         gO.isConst = false;
+        // alert("gO made writable");
+    }
+
+    var gridIdInStep = getGridPosInStep4OfHtmlId(htmlId);
+    var iO = sO.allIndObjs[gridIdInStep];
+
+    drawGrid(gO, iO, gO.htmlId, false);
+}
+
+//----------------------------------------------------------------------------
+// unlock a grid in header
+//----------------------------------------------------------------------------
+function lockGrid(htmlId, isConst) {
+
+    var fO = CurFuncObj;
+    var sO = CurStepObj;
+    //
+    var gridIdInF = getGridIdOfHtmlId(htmlId);       // find grid object
+    var gO = fO.allGrids[gridIdInF];
+
+    // if this is a non-constant grid, we allow changing it to a const grid
+    // for a function argument (in the header)
+    //
+    if (!isConst && sO.isHeader) {
+        gO.isConst = true;
         // alert("gO made writable");
     }
 
@@ -9846,7 +10286,7 @@ function gridIndAdd(tdobj, htmlId, dim, ind) {
 
     // Don't allow inserting as a range
     //
-    if (sO.activeParentExpr.isLoopStmt()) {
+    if (sO.activeParentExp && sO.activeParentExpr.isLoopStmt()) {
         warn("Cannot insert a grid cell into the Index Range");
         return;
     }
@@ -10221,7 +10661,10 @@ function getComment(obj) {
 
     CommentObj = obj; // record object in global variable
 
-    var prop = " style='background-color:#FFFFC2' ";
+    // Note: we set contenteditable true so that formula boxes will ignore
+    //       the symbols/back-space we type. See myKeyPress() 
+    //
+    var prop = " style='background-color:#FFFFC2'  contenteditable='true' ";
 
     // string that goes into the comment box (multi-line text area)
     //
@@ -10371,7 +10814,11 @@ function putGridRef(htmlId) {
     //
     var gridId = getGridIdOfHtmlId(htmlId);
     var gO = CurFuncObj.allGrids[gridId];
-    if (gO.numDims < 1) {
+
+    // if user clicked on a scalar grid name
+    // Note: We can put a scalar grid name in a range expression
+    //
+    if ((gO.numDims < 1) && parExpr && parExpr.isRange()) {
 
         showTip(TipId.ScalarGridRefClick);
         return;
@@ -10626,6 +11073,7 @@ function addStrExpr(opstr) {
 
 //----------------------------------------------------------------------------
 // Add a string expression
+// TODO: set ExprObj.grid = ... so that endname is associated with a grid
 //----------------------------------------------------------------------------
 function addEndExpr() {
 
@@ -10633,6 +11081,11 @@ function addEndExpr() {
 
     var sO = CurStepObj;
     var opExpr = new ExprObj(true, ExprType.Literal, endname);
+
+    // TODO: Set ExprObj.grid so that endname is associated with a grid
+    //
+    // opExpr.grid = ....
+
     addGenExpr(opExpr);
 }
 
@@ -11556,16 +12009,21 @@ function resetColRowIndices(gO, iO) {
 					    //     == true && 
 					    //     gO.isGlobal == true
             // Add 0 and 'end' index values 
-            //
-            iO.dimIndExprs[d][0] = getDefIndStartExpr();
+            // Note: Add start (0) last -- in case the dim has only 1 entry
+	    //       it should be labeled 0 (not endX)
+	    //
             iO.dimIndExprs[d][gO.dimShowSize[d] - 1] = getDefIndEndExpr(d);
+            iO.dimIndExprs[d][0] = getDefIndStartExpr();
+
 
 	} else { //MPI: If dimension is extended use startX/endX
 
-	    iO.dimIndExprs[d][0] = getDefIndStartExprExt(gO, d); 
+            // Note: Add start (0) last -- in case the dim has only 1 entry
+	    //       it should be labeled 0 (not endX)
+	    //
 	    iO.dimIndExprs[d][gO.dimShowSize[d] - 1] = 
-		    getDefIndEndExprExt(gO, d);
-
+		getDefIndEndExprExt(gO, d);
+	    iO.dimIndExprs[d][0] = getDefIndStartExprExt(gO, d); 
 	}
     }
 }
@@ -11829,10 +12287,13 @@ function drawCodeWindow(sO) {
         + bstr + "value='!=' onclick='addOpExpr(\"!=\")'>" 
         + bstr + "value='<-' onclick='addOpExpr(\"<-\")'>"
 
-
 	+ bstr + "value='OR' onclick='addOpExpr(\"OR\")'>" 
 	+ bstr + "value='AND' onclick='addOpExpr(\"AND\")'>" 
-	+ bstr + "value='NOT' onclick='addOpExpr(\"NOT\")'>" 
+	+ bstr + "value='NOT' onclick='addOpExpr(\"NOT\")'>"
+
+	//DC4: TRUE/FALSE values (for boolean variables).
+	+ bstr + "value='TRUE' onclick='addStrExpr(\".TRUE.\")'>" 
+	+ bstr + "value='FALSE' onclick='addStrExpr(\".FALSE.\")'>" 
 	+ hsep
 
         + bstr + "value='(' onclick='addOpExpr(\"(\")'>" 
@@ -12039,8 +12500,12 @@ function drawCodeWindow(sO) {
 	+ "</td></tr>";
     */
 
+    /* TODO: Enable later when incorporating OpenCL code-gen
+    //OCL:
     + "<tr><td>" + "<input" + prop +
     "value='Options' onclick='showHideOptions()'>" + "</td></tr>"
+    */
+
     + "</table>";
 
     var opw1 = document.getElementById('operatorWindow');
@@ -12951,8 +13416,11 @@ function getHtmlExprStmt(e, sO, parentPath, myPos) {
             //
             var rtips = ['grid name', 'start', 'end', 'step'];
 
-            // For production caption/start/end/step. The output should
-            // look like caption(start:end:step)
+	    // Note. In exprArr, expressions are stored as 
+	    //       grid-caption/start/end/step
+	    //
+            // For producing caption/start/end/step. The output should
+            // look like (start:end:step)
             //
             for (var i = 0; i < e.exprArr.length; i++) {
 
@@ -12961,7 +13429,7 @@ function getHtmlExprStmt(e, sO, parentPath, myPos) {
                 var cprop = " title='" + rtips[i] + "' ";
 
                 if (i == 1) rcont += "("; // after grid caption
-                if (i > 1) rcont += ":"; // after start/end
+                if (i > 1) rcont += " : "; // after start/end
 
                 // if this child is active (highlighted)
                 //
@@ -13145,7 +13613,9 @@ function addLetNameExpr(parentPath, childPos, box, obj) {
     if (!sO.focusBoxExpr || !sO.focusBoxExpr.exprArr ||
         !sO.focusBoxExpr.exprArr.length) {
 
-        if (sO.focusBoxId != CodeBoxId.Index) {
+        if ((sO.focusBoxId != CodeBoxId.Index) &&           // index OK
+	    (!sO.boxAttribs[sO.focusBoxId].isMask())) {     // condition OK
+
             alert("Let name can be used only as a source");
             return;
         }
@@ -14256,6 +14726,7 @@ function getJavaScriptStr4Func(mO, f) {
         // done in order to stop showing data of a given step
         //
         if (fO.allSteps[s] == CurStepObj) {
+	    //
             step_code +=
                 "throw 'Breakpoint for current step reached' ;\n";;
         }
@@ -14297,7 +14768,7 @@ function allocAnyDynamicGrid(mO, fO, sO) {
         return "";
 
 
-    logMsg("Out grid of step has a dynmic size");
+    logMsg("Out grid " + gO.caption + " of step has a dynmic size");
 
     // Go thru each dimension and if any dim is dynamically sized (based on 
     // the value of scalar grid), insert code to calculate the value and 
@@ -14316,11 +14787,13 @@ function allocAnyDynamicGrid(mO, fO, sO) {
             // insert the line to copy the value of scalar grid to 
             // dimActSize[d] 
             //
-            ret += outname + ".dimActSize[" + d + "] = " + var2JS(gO.dimDynSize[
-                d]) + ".data[0];\n";
+            ret += outname + ".dimActSize[" + d + "] = " + 
+		var2JS(gO.dimDynSize[d]) + ".data[0];\n";
 
+	    // ret += "alert(" + var2JS(gO.dimDynSize[d]) + 
+	    //	".data[0]);\n";
 
-            // logMsg("detected dyn size for dim: " + d);
+            logMsg(" -- inserted code to dynamically allocate for dim: " + d);
         }
     }
 
@@ -14328,7 +14801,7 @@ function allocAnyDynamicGrid(mO, fO, sO) {
     // Now, insert code to dynamically allocate the output grid at this
     // point
     //
-    ret += "createArrays(" + outname + ");\n\n";
+    ret += "createArrays(" + outname + ", true);\n\n";
 
     return ret;
 
@@ -14435,17 +14908,33 @@ function getJavaScriptStr4Step(mO, fO, sO) {
 
             var outGrid = fO.allGrids[sO.allGridIds[0]]; //Output grid
 
+	    // NOTE: The dimActSize[dim] should be set when a grid is 
+	    //       created. If the there dim has a dynamic size,
+	    //       dimActSize[dim] must be evaluated there -- we already
+	    //       do this in allocAnyDynamicGrid() -- called at the top
+	    //       of this function.  Doing it here for a range expression 
+	    //       is WRONG. Range must just use the value already set by
+	    //       allocAnyDynamicGrid.
+
+	    /*
             if (sO.isOutGridNew && (iv < outGrid.numDims) &&
                 outGrid.dimDynSize[iv]) {
 
-                forstr += var2JS(outGrid.caption) + ".dimActSize[" +
-                    var2JS(rexpr.labelExpr.str) + "] = " + var2JS(
-                        dynendval) + ".data[0]" + ";\n";
+		// NOTE: The following is WRONG. We must NOT write to the 
+		// something like "dimActSize[_row]",  
+		//
+                //forstr += var2JS(outGrid.caption) + ".dimActSize[" +
+                //    var2JS(rexpr.labelExpr.str) + "] = " + var2JS(
+                //        dynendval) + ".data[0]" + ";\n";
 
-            }
+	     }
+	    */
+
+	    
             var endval = rexpr.gO.dimActSize[rexpr.selDim];
             forstr += "var " + endv + " = " + var2JS(rexpr.gO.caption) +
                 ".dimActSize[" + iv + "]" + "-1;\n";
+
             //alert(forstr);
             //forstr += "var " + endv + " = " + endval + "-1;\n";
 

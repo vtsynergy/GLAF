@@ -137,30 +137,78 @@ var FileInput_loadCSV_Fortran =
     "END SUBROUTINE\n";
 
 
-//----------------------------------------------------------------------------
-// Used for automatically generating and compiling on the cloud.	
-//----------------------------------------------------------------------------
-function run_on_cloud(parallel) {
 
-    var codestring = encodeURIComponent(showFortranStr(1, parallel, 0)); 
-    // TODO: Default is SoA
+//DC99:
+//TODO: Add support for the LARGE test file.
+var LibLoadCSR_F =
+"subroutine readCSR(neq,nb,iam,jam,a_off,a_diag_lu,dq,dqc,res,color_indices)\n" +
+"    implicit none\n" +
+"    integer, dimension(40)  :: color_indices\n" +
+"    integer,dimension(:),allocatable:: iam, jam\n" +
+"    real, dimension(:,:,:), allocatable :: a_off\n" +
+"    real, dimension(:,:,:), allocatable :: a_diag_lu\n" +
+"    real, dimension(:,:), allocatable :: dq,dqc,res\n" +
+"    integer :: nb, neq, i,j,nnz, k, row, ierr\n" +
+"    !use sample distribution for random generated matrix\n" +
+"    allocate(iam(neq+3), STAT=ierr ) ! little extra to keep read simple\n" +
+"    if  (ierr/=0) print *, \"Error Allocating iam\"\n" +
+"    ! read iam file\n" +
+"    if (neq == 6309) then\n" +
+"       open(11,file='iamS.txt')\n" +
+"       DO row = 1,1052\n" +
+"          k  = (row-1)*6+1\n" +
+"          READ(11,FMT=*) iam(k),iam(k+1),iam(k+2),iam(k+3),iam(k+4),iam(k+5)\n" +
+"       END DO\n" +
+"       close(11)\n" +
+"    end if\n" +
+"    ! allocating memory based on number of non zeros\n" +
+"    nnz = iam(neq+1)-1\n" +
+"    allocate(jam(nnz),  STAT=ierr)\n" +
+"    if  (ierr/=0) print *, \"Error Allocating jam\"\n" +
+"       allocate(a_off(nb, nb, nnz),  STAT=ierr)\n" +
+"    if  (ierr/=0) print *, \"Error Allocating _off\"\n" +
+"       allocate(a_diag_lu(nb, nb, neq),  STAT=ierr)\n" +
+"    if  (ierr/=0) print *, \"Error Allocating a_diag_lu\"\n" +
+"       allocate(dq(nb,neq),  STAT=ierr)\n" +
+"    if  (ierr/=0) print *, \"Error Allocating dq\"\n" +
+"       allocate(dqc(nb,neq),  STAT=ierr)\n" +
+"    if  (ierr/=0) print *, \"Error Allocating dqc\"\n" +
+"       allocate(res(nb,neq),  STAT=ierr)\n" +
+"    if  (ierr/=0) print *, \"Error Allocating res\"\n" +
+"    ! read and generate rest of the data \n" +
+"    if (neq == 6309) then\n" +
+"       open(11,file='jamS.txt')\n" +
+"       DO row = 1,14295\n" +
+"          k = (row-1)*6+1\n" +
+"          READ(11,FMT=*) jam(k),jam(k+1),jam(k+2),jam(k+3),jam(k+4),jam(k+5)\n" +
+"       END DO\n" +
+"       close(11)\n" +
+"    end if\n" +
+"    if (neq == 6309) then\n" +
+"       open(11,file='color_indicesS.txt')\n" +
+"       DO row = 1,4\n" +
+"          k = (row-1)*5+1\n" +
+"          READ(11,FMT=*) color_indices(k),color_indices(k+1),color_indices(k+2), &\n" +
+"          color_indices(k+3), color_indices(k+4)\n" +
+"       END DO\n" +
+"       close(11)\n" +
+"    end if\n" +
+"    ! generate a_off, a_diag_lu, dq, res\n" +
+"    call random_number(a_off)\n" +
+"    call random_number(a_diag_lu)\n" +
+"    call random_number(dq)\n" +
+"    dqc = dq\n" +
+"    call random_number(res)\n" +
+"    a_off = 0.1 * a_off\n" +
+"    a_diag_lu = 0.1*a_diag_lu\n" +
+"    dq = 0.1 * dq\n" +
+"    dqc = 0.1 * dqc\n" +
+"    res = 0.1 * res\n" +
+"    return\n" +
+"  end subroutine readCSR\n";
 
-    // Put in JS file, call function containing this from onclick in HTML code
-    var req = false;
-    req = new XMLHttpRequest();
-    // Catch error (for older browsers).
-    req.open("GET", "my_php.php?code=" + codestring + "&parallel=" +
-        parallel + "&Soa=1", true); 
-    // URL: my php file, use POST for non-cached files, no size limitation
-    req.send(); //Gets executed
+   
 
-    alert(
-        "File has been generated. Please, find resulting files on the server."
-    );
-	
-}
-
-//AT:
 function showAuTuMenu() {
 
     sO = CurStepObj;
@@ -178,7 +226,6 @@ function showAuTuMenu() {
 }
 
 
-//AT:
 //----------------------------------------------------------------------------
 // Draw code-generation and auto-tune menu page.
 //----------------------------------------------------------------------------
@@ -187,33 +234,41 @@ function drawOutAutotuneMenu() {
     var menuId = OutHtmlId;
     var menu1 = document.getElementById(menuId);
 
-    var str = "<body><h1>Code generation and auto-tuning options</h1>";
-    str += "<p>Please, select your target platform, target language(s) below," +
+    var str = "<body><h1>Code generation options</h1>";
+    str += "<p>Please, select your target platform, target language(s), and " +
+	"data layout optimization below." +
+	/* TODO: Enable later if we add more buttons for on-line/serv-side ver
 	"and the desired auto-tuning options.<br>" + 
     	"Then, click on the button that corresponds to the desired action " +
-	"(hover mouse for a brief explanations).<br><br></p>";
+	"(hover mouse for a brief explanations)." + 
+	*/
+	"<br><br></p>";
 
     str += "<form name='targetForm'>" +
 	"<label for='target'><b>Target Platform:</b></label><br>" +
         "<input type='radio' name='targSel' value='CPU' > CPU" +
 	"<br>" +
         "<input type='radio' name='targSel' value='MIC' > MIC" +
+	/* TODO: Enable later + appropriately adapt gen.files naming conventions
 	"<br>" +
 	"<input type='radio' name='targSel' value='GPU'" +
 	" disabled='disabled' > Gen Graphics" +
+	*/
 	"<br><br>";
 
     str += "<label for='target'><b>Target Languages:</b></label><br>" +
 	"<input type='checkbox' name='langSel' value='Fortran' > Fortran" +
 	"<br>" +
         "<input type='checkbox' name='langSel' value='C' > C" +
+	/* TODO: Enable later + appropriately adapt gen.files naming conventions
 	"<br>" +
 	"<input type='checkbox' name='langSel' value='OpenCL'" +
 	" disabled='disabled' > OpenCL" +
+	*/
 	"<br><br>";
 
     str += "<label for='target'><b>Basic Auto-Tuning Options:</b></label><br>" +
-	"<input type='checkbox' name='autoTuneSel' value='ser'> Serial version" +
+	"<input type='checkbox' name='autoTuneSel' value='ser'>Serial version" +
 	"<br>" +
 	"<input type='checkbox' name='autoTuneSel' value='parTool'>" + 
 	"Parallel version (tool-generated)" +
@@ -223,8 +278,11 @@ function drawOutAutotuneMenu() {
 	"<br><br>";
 
     str += "<label for='target'><b>Extra Auto-Tuning Options:</b></label><br>" +
+	"<input type='checkbox' name='autoTune2Sel' value='dataLayoutDef'" +
+	" hidden='hidden' checked='checked'>" +
 	"<input type='checkbox' name='autoTune2Sel' value='dataLayout' >" +
 	"Data layout transformations (SoA/AoS)" +
+	/* TODO: Enable later + appropriately adapt gen.files naming conventions 
 	"<br>" +
 	"<input type='checkbox' name='autoTune2Sel' value='loopCollapse' >" +
 	"Loop collapse transformations" +
@@ -232,8 +290,10 @@ function drawOutAutotuneMenu() {
 	"<input type='checkbox' name='autoTune2Sel' value='loopInterch'" +
 	" disabled='disabled' >" +
 	"Loop interchange transformations" +
+	*/
 	"<br><br>";
 
+    /* TODO: Enable later if we want to provide on-line/server-side version
     str += "<label for='target'><b>Working mode:</b></label><br>" +
         "<input type='radio' onclick='buttonsEnableDisable(0);'" +
 	" name='w_mode' value='online' > On-line" +
@@ -241,9 +301,11 @@ function drawOutAutotuneMenu() {
         "<input type='radio' onclick='buttonsEnableDisable(1);' name='w_mode'" +
 	" value='offline' > Off-line" +
 	"<br><br>";
+    */
 
-
-    str += "<input type='button' name='submitButton' value='Create Source'" +
+    str += 
+	/* TODO: Enable later if we want to provide on-line/server-side version
+	"<input type='button' name='submitButton' value='Create Source'" +
 	" disabled='disabled' " + 
 	"title='Create source files for the selected options. Source" +
 	"files will be available in the output folder.'" +
@@ -270,11 +332,35 @@ function drawOutAutotuneMenu() {
 	"options. Files will be available in the output folder.'" +
 	" onclick='handleBut(3);'/>" +
 	"<br><br>" +
-        "<input type='button' name='submitButton' value='Save locally'" +
+	*/
+        "<input type='button' name='submitButton' value='Generate .glf file'" +
+	/* TODO: Enable later if we want to provide on-line/server-side version
 	" disabled='disabled' " +
+	*/
 	"title='Generate source files and auto-tune script and download " +
 	"on your computer.'" +
-	" onclick='saveLocally();'/>";
+	" onclick='handleBut(4);'/>" +
+	"<p>&nbsp</p><hr><p><b>INSTRUCTIONS</b></p>" +
+	"<ol><li>Click the \"Generate .glf file\" button above to " +
+	"download the <i>sourceCodes.glf</i> file.</li>" +
+	"<li><a href=\"http://glaf.cs.vt.edu/glaf_online/splitfiles.pl\"> " +
+	"Download the required PERL " +
+	"script</a> in the same directory where you downloaded the .glf file." +
+	"</li><li>Run the PERL script with the command: " + 
+	"<i>perl splitfiles.pl</i></li>" +
+	"<li>The following are generated under the \"prog\" sub-directory:</li>" +
+	"<ul><li>All code implementations in an appropriate folder structure." +
+	"</li><li>A <i>Makefile</i> that can be used to compile all code " +
+	"implementations.</li>" +
+	"<li>A script (<i>runScript.sh</i>) to execute and measure execution " +
+	"time of all code implementations.</li></ul>" +
+	"<li>Run the make command from within the \"prog\" sub-directory: " +
+	"<i>make</i></li>" +
+	"<li>Run the execution and timing script from within the \"prog\"" +
+	" sub-directory: <i>sh runScript.sh</i></li>" +
+	"<li>View the execution time results by clicking the results.html " +
+	"file created in the \"prog\" sub-directory.</li></ol>"
+	;
 
     str += "<tr>" + "<td class='caption'>" +
         "<input type='button' value='Back'" +
@@ -287,12 +373,13 @@ function drawOutAutotuneMenu() {
 }
 
 
+//-----------------------------------------------------------------------------
 // Responsible for enabling/disabling the action buttons,
 // depending on current working mode selected:
 // a = 0 (on-line mode/client-server)
 // a = 1 (off-line/files downloaded locally)
+//-----------------------------------------------------------------------------
 function buttonsEnableDisable(a) {
-
     
     var onlineItems = document.getElementsByName('submitButton');
     if(a==0) {
@@ -312,12 +399,60 @@ function buttonsEnableDisable(a) {
 }
 
 
-// Responsible for the actions when off-line mode is selected.
-// i.e., generate code and auto-tune script and download all
-// to local computer.
-function saveLocally() {
+//-----------------------------------------------------------------------------
+// Performs validation of selected options in auto-tune menu screen
+// Need to select at least: one target platform, language, basic
+// auto-tuning option.
+//-----------------------------------------------------------------------------
+function validateSelections() {
 
-    alert("Under development");
+    // Counter for conditions being satisfied (total of 3).
+    var satisfied = 0;
+
+    // Target platform selection.
+    var targChoice = document.getElementsByName('targSel');
+    for (var i = 0; i < targChoice.length; i++) {
+
+        if (targChoice[i].checked) {
+
+	    satisfied++;
+	    break;
+
+        }
+
+    }
+
+    // Language selection.
+    var langChoice = document.getElementsByName('langSel');
+    for (var i = 0; i < langChoice.length; i++) {
+
+        if (langChoice[i].checked) {
+
+	    satisfied++;
+	    break;
+
+        }
+
+    }
+
+    // Basic auto-tuning selection.
+    var auTuChoice = document.getElementsByName('autoTuneSel');	    
+    for (var i = 0; i < auTuChoice.length; i++) {
+
+        if (auTuChoice[i].checked) {
+
+	    satisfied++;
+	    break;
+
+        }
+    
+    }
+
+
+    if (satisfied == 3)
+        return 1;
+    else
+        return -1;
 
 }
 
@@ -325,12 +460,13 @@ function saveLocally() {
 //AT:
 function handleBut(option) {
 
-    // TODO: Need to check/validate option combinations.
+    // Need to check/validate option combinations.
     // e.g., For GPU we only allow OpenCL.
     // e.g., Need to select ONE target platform.
     // e.g., Need to select AT LEAST one target language.
-    // e.g., Need to select AT LEAST one auto-tuning option.
-	   
+    // e.g., Need to select AT LEAST one basic auto-tuning option.
+
+
     // Find the target platform choice and save: CPU:0, MIC:1, GPU:2
     // Only one choice possible (radio button).
     var targChoice = document.getElementsByName('targSel');
@@ -426,7 +562,11 @@ function handleBut(option) {
 		    
 	    switch(auTu2Choice[i].value) {
 
+		case 'dataLayoutDef':
+		    auTu2ChoiceArr.push(-1);
+		    break;
 		case 'dataLayout':
+		    auTu2ChoiceArr.pop();
 		    auTu2ChoiceArr.push(0);
 		    break;
 		case 'loopCollapse':
@@ -443,10 +583,10 @@ function handleBut(option) {
 
     // Debugging:
     //alert("Option (button pressed): " + option +
-//	"\nTarget platform option: " + targChoiceVal + 
-//	"\nLanguage choice options: " + langChoiceArr + 
-//	"\nAuto-tune options: " + auTuChoiceArr +
-//	"\nAuto-tune extra options: " + auTu2ChoiceArr);
+    //	"\nTarget platform option: " + targChoiceVal + 
+    //	"\nLanguage choice options: " + langChoiceArr + 
+    //	"\nAuto-tune options: " + auTuChoiceArr +
+    //	"\nAuto-tune extra options: " + auTu2ChoiceArr);
 
 
 
@@ -456,10 +596,10 @@ function handleBut(option) {
     // prog_<CPU/MIC/GPU>_<FORTRAN/C/OPENCL>_<SER/PARTOOL/PARCOMP>_<SoA/AoS>
     // plus the appropriate file extension.
     // TODO: Loop collapse transformations and loop interchange transformations
-    // are future features. OpenCL code generation is at an immature stage.
+    // are features to add.
 
     // Code generation needs to be done for all 4 available choices/buttons.
-    // TODO: CAUTION: OpenCL needs to be handled differently. When implemented
+    // TODO: CAUTION: OpenCL needs to be handled differently. Need to
     // revisit the code below!
 
     var targ = auTuOpts2string(0, targChoiceVal);
@@ -568,8 +708,8 @@ function handleBut(option) {
 		    }
 
 	        } else if (langChoiceArr[i] == 2)
-		    alert("NOT IMPLEMENTED YET");
-		    // TODO: Add OpenCL file creation/names when implemented.
+		    alert("NOT SUPPORTED IN THIS VERSION");
+		    // TODO: Add OpenCL file creation/names.
 
 	    }
 
@@ -580,6 +720,9 @@ function handleBut(option) {
     //alert(fileNames);
 
 
+    // TODO: Options 0 to 3 are not used if on-line/server-side version is
+    //       disabled (currently this mode is disabled/commented-out).
+
     // TODO:
     // *) If possible skip the PHP and call CGI only. 
 
@@ -588,89 +731,129 @@ function handleBut(option) {
     // 2) Create PHP file for (5) and test.
     // 3) Create a way to import into html the results written from autotuning.
 
-if(option == 0 || option == 1 || option == 2 || option == 3) {
-    // 1)
-    // Convert fileNames and sourceCodes arrays to pass them to PHP and POST
-    // Called PHP file will create the source files using the corresponding
-    // file names. Files will be in folders having the SAME name as the files
-    // but WITHOUT the .f90/.c/etc. extension.
-    var fileNamesJSON = JSON.stringify(fileNames);
-    var sourceCodesJSON = encodeURIComponent(JSON.stringify(sourceCodes));
-    var params = "fileNames=" + fileNamesJSON + "&sourceCodes=" + 
-                 sourceCodesJSON; 
-    var req = false;
-    req = new XMLHttpRequest();
-    req.open("POST", "saveSources.php", true);
-    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    req.send(params); //Gets executed
-}
+    if(option == 0 || option == 1 || option == 2 || option == 3) {
+        // 1)
+        // Convert fileNames and sourceCodes arrays to pass them to PHP and POST
+        // Called PHP file will create the source files using the corresponding
+        // file names. Files will be in folders having the SAME name as the files
+        // but WITHOUT the .f90/.c/etc. extension.
+        var fileNamesJSON = JSON.stringify(fileNames);
+        var sourceCodesJSON = encodeURIComponent(JSON.stringify(sourceCodes));
+        var params = "fileNames=" + fileNamesJSON + "&sourceCodes=" + 
+                     sourceCodesJSON; 
+        var req = false;
+        req = new XMLHttpRequest();
+        req.open("POST", "saveSources.php", true);
+        req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        req.send(params); //Gets executed.
+    }
 
-var pap = new Array(); 
+    var pap = new Array(); 
 
-if(option == 1 || option == 2 || option == 3) {
-    // 2)
-    // Convert compile script to pass to PHP and POST
-    // Called PHP file will create the compile script using the name under
-    // convention and then call a CGI-script that will run it to create the
-    // binaries in their appropriate folders, according to the convention.
-    pap = createCompileScript(fileNames, langChoiceArr, auTuChoiceArr, auTu2ChoiceArr);
-    var compileScript = pap[0];
-    //alert(compileScript); 
-    var compileScriptJSON = JSON.stringify(compileScript);
-    params = "compScript=" + compileScriptJSON; 
-    req = false;
-    req = new XMLHttpRequest();
-    req.open("POST", "compileBinaries.php", true);    
-    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    req.send(params); //Gets executed
-}
+    if(option == 1 || option == 2 || option == 3) {
+        // 2)
+        // Convert compile script to pass to PHP and POST.
+        // Called PHP file will create the compile script using the name under
+        // convention and then call a CGI-script that will run it to create the
+        // binaries in their appropriate folders, according to the convention.
+        pap = createCompileScript(fileNames, langChoiceArr, auTuChoiceArr, auTu2ChoiceArr);
+        var compileScript = pap[0];
+        alert(compileScript); 
+        var compileScriptJSON = JSON.stringify(compileScript);
+        params = "compScript=" + compileScriptJSON; 
+        req = false;
+        req = new XMLHttpRequest();
+        req.open("POST", "compileBinaries.php", true);    
+        req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        req.send(params); //Gets executed.
+    }
 
 /*
-if (option == 2 || option == 3) {
-    // 3)
-    // Convert auto-tuning script to pass to PHP and POST
-    // Called PHP file will create the auto-tune script using the name under
-    // convention.
-    var auTuScriptJSON = JSON.stringify();
-    params = "auTuScript=" + auTuScriptJSON; 
-    req = false;
-    req = new XMLHttpRequest();
-    req.open("POST", "genAuTuScript.php?auTuScript=" + auTuScriptJSON, true);   
-    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    req.send(params); //Gets executed
+    if (option == 2 || option == 3) {
+        // 3)
+        // Convert auto-tuning script to pass to PHP and POST.
+        // Called PHP file will create the auto-tune script using the name under
+        // convention.
+        var auTuScriptJSON = JSON.stringify();
+        params = "auTuScript=" + auTuScriptJSON; 
+        req = false;
+        req = new XMLHttpRequest();
+        req.open("POST", "genAuTuScript.php?auTuScript=" + auTuScriptJSON, true);   
+        req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        req.send(params); //Gets executed
 }
 */
 
-if (option == 3) {
-    // 4)
-    // Will run the generated auto-tune script.
-    // Called PHP file will call a CGI-script to run the auto-tune script
-    // created in (3).
-    //alert(pap[1]);
-    var runExScriptJSON = JSON.stringify(pap[1]);
-    params = "runExScript=" + runExScriptJSON;
-    req = false;
-    req = new XMLHttpRequest();
-    req.open("POST", "runAuTuScript.php", false);    
-    // Receive response from php and display it in HTML page.
-    req.onreadystatechange = function() {
+    if (option == 3) {
+        // 4)
+        // Will run the generated auto-tune script.
+        // Called PHP file will call a CGI-script to run the auto-tune script
+    	// created in (3).
+    	//alert(pap[1]);
+    	var runExScriptJSON = JSON.stringify(pap[1]);
+    	params = "runExScript=" + runExScriptJSON;
+    	req = false;
+    	req = new XMLHttpRequest();
+    	req.open("POST", "runAuTuScript.php", false);    
+    	// Receive response from php and display it in HTML page.
+    	req.onreadystatechange = function() {
 	if (req.readyState == 4)
 	    if (req.status == 200) {
-		refreshWithResults(req.responseText);
+	        refreshWithResults(req.responseText);
 	    }
+        }
+        req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        req.send(params); //Gets executed.
+
     }
-    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    req.send(params); //Gets executed
+
+
+    if (option == 4) {
+
+	// Filenames and source-codes are available at this point.
+	// Binaries are not (and should not since done locally).
+	// TODO: Auto-tune script needs to be available.
+	// TODO: Auto-tune and time script needs to be available (but not run).
+
+	var savedSingleFile = "";
+
+        var proceed = validateSelections();
+
+        if (proceed == -1) {
+
+	    var msg_str = "You need to select at least: one " +
+		      "Target Platform, one Target Language, " +
+		      "one Basic Auto-Tuning Option."		
+
+            alert(msg_str);
+
+        } else {
+
+
+	    for (var i = 0; i < fileNames.length; i++) {
+
+		    savedSingleFile += "FILENAME:" + fileNames[i] + "\n";
+		    savedSingleFile += sourceCodes[i];	
+
+	    } 
+
+	    alert(savedSingleFile);
+
+   	    savedSingleFile = encodeURIComponent(savedSingleFile);
+	    download2SaveFortran(savedSingleFile, "sourceCodes.glf");
+        
+        }
+
+    }
 
 }
 
 
-}
-
-
+//-----------------------------------------------------------------------------
 // Refreshes the content of the webpage with the results obtained and a back
 // button.
 // TODO: Extend: Place on side frame, next to the options, not below.
+//-----------------------------------------------------------------------------
 function refreshWithResults(responseText) {
 
     var str = "<h2>Results:</h2><br>";
@@ -680,10 +863,12 @@ function refreshWithResults(responseText) {
 }
 
 
+//-----------------------------------------------------------------------------
 // Given the filenames array create a string
 // that will compile the above filenames. Since, they may be parallel or serial
 // or serial versions but which need to be compiled with -parallel flag, we
 // need the rest information, as well, and use it to identify the above.
+//-----------------------------------------------------------------------------
 function createCompileScript(fileNames, langChoiceArr, auTuChoiceArr, 
 auTu2ChoiceArr) {
 
@@ -807,11 +992,12 @@ auTu2ChoiceArr) {
 }
 
 
-//AT:
+//-----------------------------------------------------------------------------
 // Given the option type (target:0, language:1, auto-tune option:2) and the
 // specific option number as passed on mouse-click on button, this function
 // returns the corresponding string to be used in the file-name generation
 // according to the convention described above.
+//-----------------------------------------------------------------------------
 function auTuOpts2string(optType, opt) {
 
     var str;
@@ -880,88 +1066,6 @@ function auTuOpts2string(optType, opt) {
 
 
 //----------------------------------------------------------------------------
-// Creates the auto-tuning script and all the code implementations that the
-// script may run and time.
-//----------------------------------------------------------------------------
-function autotune() {
-
-    var parallel = 0
-
-    //SoA, serial
-    var codestring = encodeURIComponent(showFortranStr(1, parallel, 0));
-
-    //Put in JS file, call function containing this from onclick in HTML code
-    var req = false;
-    req = new XMLHttpRequest();
-    // Catch error (for older browsers).
-    req.open("GET", "my_php.php?code=" + codestring + "&parallel=" +
-        parallel + "&Soa=1", true); 
-    // URL: my php file, use POST for non-cached files, no size limitation
-    req.send(); //Gets executed
-
-
-    //AoS, Serial
-    var codestring2 = encodeURIComponent(showFortranStr(0, parallel, 0));
-
-    req = false;
-    req = new XMLHttpRequest();
-    req.open("GET", "my_php.php?code=" + codestring2 + "&parallel=" +
-        parallel + "&Soa=0", true); 
-    req.send(); //Gets executed
-
-
-    parallel = 1;
-    //SoA, Parallel
-    var codestring3 = encodeURIComponent(showFortranStr(1, parallel, 0));
-
-    req = false;
-    req = new XMLHttpRequest();
-    req.open("GET", "my_php.php?code=" + codestring3 + "&parallel=" +
-        parallel + "&Soa=1", true); 
-    req.send(); //Gets executed
-
-    //AoS, Parallel
-    var codestring4 = encodeURIComponent(showFortranStr(0, parallel, 0));
-
-    req = false;
-    req = new XMLHttpRequest();
-    req.open("GET", "my_php.php?code=" + codestring4 + "&parallel=" +
-        parallel + "&Soa=0", true); 
-    req.send(); //Gets executed
-
-    var scriptStr = "#/bin/sh\n" +
-        "source /opt/intel/composer_xe_2013.5.192/bin/compilervars.sh intel64\n" +
-        "cd ser_soa\nifort -o ser_soa_grd grid_src_ser_soa.f90\ncd ..\n" +
-        "cd ser_aos\nifort -o ser_aos_grd grid_src_ser_aos.f90\ncd ..\n" +
-        "cd par_soa\nifort -o par_soa_grd grid_src_par_soa.f90 -openmp\ncd ..\n" +
-        "cd par_aos\nifort -o par_aos_grd grid_src_par_aos.f90 -openmp\ncd ..\n" +
-        "cp ser_soa/grid_src_ser_soa.f90 par_soa_comp\n" +
-        "cp ser_aos/grid_src_ser_aos.f90 par_aos_comp\n" +
-        "cd par_soa_comp\nifort -o par_soa_comp grid_src_ser_soa.f90 -parallel\ncd ..\n" +
-        "cd par_aos_comp\nifort -o par_aos_comp grid_src_ser_aos.f90 -parallel\ncd ..\n" +
-        "echo Serial SoA:\ntime ./ser_soa/ser_soa_grd\necho\n" +
-        "echo Serial AoS:\ntime ./ser_aos/ser_aos_grd\necho\n" +
-        "echo Grid-parallelized SoA:\ntime ./par_soa/par_soa_grd\necho\n" +
-        "echo Grid-parallelized AoS:\ntime ./par_aos/par_aos_grd\necho\n" +
-        "echo Compiler-parallelized SoA:\ntime ./par_soa_comp/par_soa_comp\necho\n" +
-        "echo Compiler-parallelized AoS:\ntime ./par_aos_comp/par_aos_comp\n";
-
-    var autotuneScript = encodeURIComponent(scriptStr);
-    req = false;
-    req = new XMLHttpRequest();
-    req.open("GET", "my_php.php?code=" + autotuneScript + "&parallel=1" +
-        "&Soa=99", true); 
-   
-    req.send(); //Gets executed
-
-    alert(
-        "Files and autotune script have been generated." + 
-	"Please, find resulting files on the server."
-    );
-}
-
-
-//----------------------------------------------------------------------------
 // Grid Language identifiers may not always be acceptable to Fortran -- e.g.,
 // reserved keywords. One strategy is to prefix every identifier with "ft_" 
 // FORTRAN variable names must start with a letter.
@@ -975,7 +1079,7 @@ function var2Fortran(str) {
 
 //----------------------------------------------------------------------------
 // Method called to get Fortran code for an expression.
-// Note: For Fortran77 only, use the commented version for comparators
+// Note: For Fortran77 only, use the commented version for comparators.
 //----------------------------------------------------------------------------
 function expr2FortranString(e) {
 
@@ -1019,6 +1123,16 @@ function expr2FortranString(e) {
 	// TODO: Take care of TWO consecutive such literals (e.g., .NOT., .GT.
         // should be .NOT.GE. and not .NOT..GE.)
 	// TODO: Implement NOT/AND/OR.
+    } else if (e.str == ".TRUE." || e.str == ".FALSE.") {
+
+	//DC4:
+	ret = e.str;
+
+    } else if (e.str == "AND" || e.str == "OR" || e.str == "NOT") {
+
+	//DC10: Fixing AND, OR, NOT (adding '.')
+	ret = "." + e.str + ".";
+
     } else if (e.type == ExprType.Break) {
 
 	ret = "EXIT";
@@ -1047,12 +1161,16 @@ function expr2FortranString(e) {
 
             // TODO: CAUTION: When does this case occur? Need to take care of 
 	    // AoS case!
-            ret = "typvar_" + e.gO.caption;
+	    ret = "typvar_" + e.gO.caption;
 
-        } else {
+        } else if (e.gO != null && e.gO.structCaption != null) { //DC3:
 
-            ret = var2Fortran(e.str);
+	    ret = e.gO.structCaption + "%" + e.gO.caption;
 
+	} else {
+
+	     ret = var2Fortran(e.str);
+            
         }
 
     } else if (e.isGridCell()) { // Any non-scalar grid
@@ -1061,7 +1179,9 @@ function expr2FortranString(e) {
 	// special code than for "typical" grids with a global (single) type.
         if (e.gO.typesInDim != -1 /*&& e.gO.numDims > 1*/) {
 
-            pre = "typvar_" + e.gO.caption;
+	   
+	    pre = "typvar_" + e.gO.caption;
+
             var lastd = e.exprArr.length - 1;
 
             // Need to find title in the dimension where we have titles AND
@@ -1076,7 +1196,8 @@ function expr2FortranString(e) {
 
             if (Soa) {
 
-                pre += "%dim" + dimChosen + "(";
+		pre += "%" + titleSrch + "("; //DC:
+                //pre += "%dim" + dimChosen + "("; //DC:
 
 	    } else {
             
@@ -1148,7 +1269,7 @@ function expr2FortranString(e) {
 
                 ret += tmp_expr_indices[0]; 
 		// Last dimension in series with no comma 
-                // to follow
+                // to follow.
 
             }
 
@@ -1158,19 +1279,29 @@ function expr2FortranString(e) {
 
 	    } else {
 		    
-                ret += ")" + "%dim" + dimChosen;
+		ret += ")" + "%" + titleSrch; //DC:
+                //ret += ")" + "%dim" + dimChosen; //DC:
 
 	    }
 
         } else {
 
-            pre = var2Fortran(e.gO.caption);
+	    //DC3:
+	    if (e.gO.structCaption == null) {
+
+                pre = var2Fortran(e.gO.caption);
+	    
+	    } else {
+
+		pre = e.gO.structCaption + "%" + e.gO.caption;
+
+	    }
 
             // Last dimension. For a scalar, lastd = -1 so none of the 
             // statements below get executed -- i.e., ret = "";
             var lastd = e.exprArr.length - 1;
 
-            if (e.gO.inArgNum >= 0 && e.gO.numDims == 0) { // i.e., scalar arg
+            if (e.gO.inArgNum >= 0 && e.gO.numDims == 0) { // i.e., scalar arg.
 
                 pre = "fun_" + e.gO.caption; 
 		// Replace in formulas with this (newly) declared,so that we 
@@ -1225,7 +1356,7 @@ function expr2FortranString(e) {
              
         }
 
-    } else { // Compound statement or function
+    } else { // Compound statement or function.
 
         if (e.isLibFuncCall()) {
 
@@ -1371,7 +1502,7 @@ function expr2FortranString(e) {
                         var allocationstring = "";
 
                         if (e.exprArr[0].gO.typesInDim == 0) { 
-			// If horizontal (row) types
+			// If horizontal (row) types.
 
                             if (load_or_save) {
 
@@ -1437,7 +1568,7 @@ function expr2FortranString(e) {
                             }
 
                         } else if (e.exprArr[0].gO.typesInDim == 1) { 
-			// If vertical (col) types
+			// If vertical (col) types.
 
                             allocationstring = "DO I=1," + e.exprArr[0].gO
                                 .dimActSize[RowDimId] + "\n";
@@ -1622,6 +1753,39 @@ function processLibFunctions(e) {
         // TODO: Must be a REAL grid cell or a REAL grid name.
         pre = "CALL RANDOM_SEED()\nCALL RANDOM_NUMBER("
 
+    } else if (e.str == "Math.sum") { //DC4:
+
+	pre = "SUM(";
+	ret = expr2FortranString(e.exprArr[0]) + "(" + 
+	      expr2FortranString(e.exprArr[1]) + ":" +
+	       expr2FortranString(e.exprArr[2]) + ")";
+
+    } else if (e.str == "FileInput.loadCSRFile") {
+	
+	//DC99:
+	// Build appropriate function call (call + arguments).
+	pre = "CALL readCSR(";
+	ret = expr2FortranString(e.exprArr[0]) + ", " +
+	      expr2FortranString(e.exprArr[1]) + ", " +
+	      expr2FortranString(e.exprArr[2]) + ", " +
+	      expr2FortranString(e.exprArr[3]) + ", " +
+	      expr2FortranString(e.exprArr[4]) + ", " +
+	      expr2FortranString(e.exprArr[5]) + ", " +
+	      expr2FortranString(e.exprArr[6]) + ", " +
+	      expr2FortranString(e.exprArr[7]) + ", " +
+	      expr2FortranString(e.exprArr[8]) + ", " +
+	      expr2FortranString(e.exprArr[9]);
+	post = ")";
+
+	if (LibFunctionsCode.indexOf("readCSR") == -1) {
+                    
+	    LibFunctionsCode = LibFunctionsCode.replace(
+             	               "__COMMONVARS__","");
+
+	    LibFunctionsCode += LibLoadCSR_F;
+
+	}
+
     }
 
     return pre + ret + post;
@@ -1630,20 +1794,20 @@ function processLibFunctions(e) {
 
 
 //----------------------------------------------------------------------------
-// Save the Fortran string generated for the program
+// Save the Fortran string generated for the program.
 // parallel: save parallel version if 1. Serial if 0.
 // show: To be passed in showFortranStr to alert(code) if 1.
 // 	 Else, just to return the code string to caller.
 //----------------------------------------------------------------------------
 function saveFortranStr(parallel, show) {
 
-    // Get the JSON string
-    //Regenerate code every time, otherwise may save old one if updated
+    // Get the JSON string.
+    // Regenerate code every time, otherwise may save old one if updated.
     TypesAllFuncs = new Array();
     NamesAllFuncs = new Array();
-    var str = encodeURIComponent(showFortranStr(0, parallel, show)); 
+    var str = encodeURIComponent(showFortranStr(1, parallel, show)); 
     createAPI(1); //API:
-    //TODO: Is SoA by default (hence '1' as first argument)
+    // TODO: Is SoA by default (hence '1' as first argument).
     download2SaveFortran(str, CurProgObj.fileName);
 
 }
@@ -1655,18 +1819,18 @@ function saveFortranStr(parallel, show) {
 //----------------------------------------------------------------------------
 function download2SaveFortran(str, filename) {
 
-    // Get the anchor element reserved for saving and change its attributs    
+    // Get the anchor element reserved for saving and change its attributs.   
     var elem = document.getElementById('saveLink');
     elem.setAttribute('href', 'data:application/octet-stream,' + str);
     elem.download = filename; //setAttribute('download', 'myfile.txt');
-    // Clic the link so that it will start downloading (saving)
+    // Clic the link so that it will start downloading (saving).
     elem.click();
 
 }
 
 
 //----------------------------------------------------------------------------
-// Show the Fortran string generated for the program
+// Show the Fortran string generated for the program.
 // strOfArr: Use structures of arrays (SoA) if 1. Arrays of structures (AoS)
 // 	     if 0.
 // show: Show code in JS (using alert) if 1. Just return code string if 0.
@@ -1689,6 +1853,17 @@ function showFortranStr(strOfArr, parallel, show) {
     NamesAllFuncs = new Array();
 
     var code = getFortranStr();
+
+    //DC4: Removing "ft_" from resulting code (done only when we are in code
+    //     integration mode).
+    //DC6: Updated
+    if (CodeIntegrationMode) {
+
+        code = code.replace( /( |\t|\n|\(|,|:)ft_/mg, "$1");
+
+    }
+
+
     if (show) {
 
         alert(code);
@@ -1703,7 +1878,7 @@ function showFortranStr(strOfArr, parallel, show) {
 
 //----------------------------------------------------------------------------
 // Returns Fortran for the current step in current funtion that the
-// user is currently working on
+// user is currently working on.
 //----------------------------------------------------------------------------
 function getFortranStr() {
 
@@ -1740,9 +1915,8 @@ function getFortranStr() {
 	if (ShowParallel)
  	    CalledFromSer = 0;
 
-	//Note: Be careful where TypesAllFuncs starts != mO.allFuncs[start]
-	func_code_all += TypesAllFuncs[f - mO.FuncStartID] + " " +
-            func_code[f];
+	//DC5: Type (if a function) is included in func_code[f].
+	func_code_all += func_code[f];
 
 	// If we are in ShowParallel, we may need a serial only version (in
 	// case of a function that contains (even a single) parallel step(s).
@@ -1761,25 +1935,31 @@ function getFortranStr() {
 	    // as less as possible until finding a newline. Do this for EACH
 	    // line of the string (m specifier).
 	    var funname = var2Fortran(mO.allFuncs[f].funcCallExpr.str);
-	    var funnameRegx = new RegExp(funname,"g");
-	    altSerFunc = altSerFunc.replace(funnameRegx, funname + "_ser");
+	    // In previous versions there was a bug when a called function had
+	    // the caller name as a prefix (manually named via the GUI).
+	    var funname2 = funname + '\\(';
+	    var funnameRegx = new RegExp(funname2,"g");
+	    altSerFunc = altSerFunc.replace(funnameRegx, funname + "_ser(");
 	    altSerFunc = altSerFunc.replace(/^.*?!\$OMP.*\n?/mg, "");
-	    func_code_all += TypesAllFuncs[f-mO.FuncStartID] + " " + altSerFunc;
+
+	    //DC5: Type (if a function) is included in func_code[f]
+	    func_code_all += altSerFunc;
 	
 	    CalledFromSer = 0;
+
 	}
 
     }
 
     // Generate code for main method.
-    var main_call = "\nPROGRAM main\n";
+    var main_call = "\nPROGRAM prog_main\n";
 
     main_call += addIndentation(0) + "USE funcs_module\n";
     main_call += addIndentation(0) + "IMPLICIT NONE\n";
     main_call += addIndentation(0) + "INTEGER, DIMENSION(4,1) :: " +
         CurModObj.allFuncs[DefMainFuncInd].allGrids[1].caption + "\n";
 
-    // TODO: We assume main returns int as a return code (like C)  
+    // TODO: We assume main returns int as a return code (like C).
     main_call += addIndentation(0) + "INTEGER :: " +
         var2Fortran(CurModObj.allFuncs[DefMainFuncInd].allGrids[0].caption) +
         "\n";
@@ -1862,7 +2042,7 @@ function getFortranStr() {
 
 //----------------------------------------------------------------------------
 // Returns integer code for string of data type.
-// TODO: When supporting all Fortran types, revise this with new types
+// TODO: When supporting all Fortran types, revise this with new types.
 //----------------------------------------------------------------------------
 function dataTypeStrToInt(dt_string) {
 
@@ -1878,6 +2058,8 @@ function dataTypeStrToInt(dt_string) {
         return 4;
     else if (dt_string === "REAL")
         return 5;
+    else if (dt_string === "VOID") //DC5:
+	return 8;
     else
         alert("TYPE NOT YET SUPPORTED");
 
@@ -1886,7 +2068,7 @@ function dataTypeStrToInt(dt_string) {
 
 //----------------------------------------------------------------------------
 // Returns data type string for given integer code.
-// TODO: When supporting all Fortran types, revise this with new types
+// TODO: When supporting all Fortran types, revise this with new types.
 //----------------------------------------------------------------------------
 function dataTypeIntToStr(typecode) {
 
@@ -1920,6 +2102,9 @@ function dataTypeIntToStr(typecode) {
         case 7:
             alert("Data type: func not supported in Fortran"); //TODO:	
             break;
+	case 8: //DC5:
+	    return "VOID";
+	    break;
         default:
             alert("Invalid input as data type");
 
@@ -1929,15 +2114,12 @@ function dataTypeIntToStr(typecode) {
 
 
 //----------------------------------------------------------------------------
-// Returns Fortran code for a single function
+// Returns Fortran code for a single function.
 //----------------------------------------------------------------------------
 function getFortranStr4Func(mO, f) {
 
     var fO = mO.allFuncs[f];
     
-    // This is the GID_function id of current function corresponding to 
-    // TypesAllFuncs and NamesAllFuncs.
-    var gID_f = 0;
     
     // Initialize current step numbering for current function to zero.
     CurStep = 0;
@@ -1949,9 +2131,8 @@ function getFortranStr4Func(mO, f) {
 
     if (var2Fortran(fO.funcCallExpr.str) == "ft_Main") {
 	    
-        // Add an INTEGER as main's return value (TypesAllFuncs[0])
+        // Add an INTEGER as main's return value (TypesAllFuncs[0]).
         TypesAllFuncs.push("INTEGER");
-        //gID_f = 1;	//NEXT one
         GID_function = 1; //NEXT one
 
     } else {
@@ -1964,10 +2145,8 @@ function getFortranStr4Func(mO, f) {
                 //"type="+TypesAllFuncs[i]);
                 //TODO: (check) Add a dummy type entry for function 
                 //return value. Will be updated later 
-                //(TypesAllFuncs[gID])
+                //(TypesAllFuncs[gID]).
                 TypesAllFuncs.push(TypesAllFuncs[i]);
-                gID_f = i; //Set, so it can be used to assign the 
-                //required type to temp return value.
             
 	    }
 
@@ -1976,7 +2155,7 @@ function getFortranStr4Func(mO, f) {
     }
 
     // Used for declaring functions as variables (needed in Fortran). 
-    // Initialize to blank at the start of each new function
+    // Initialize to blank at the start of each new function.
     Func_decl = "";
 
     // See their declaration (global scope) for details on below:
@@ -1984,13 +2163,24 @@ function getFortranStr4Func(mO, f) {
     Index_end_decl = "";
     Grids_new_decl = "";
     TitleDefs_decl = "";
+    AllocFreePerFunc = "";
 
-    // Create function header (function keyword plus name). Arguments to be
-    // added in subsequent steps.
-    var func_head = "FUNCTION " + var2Fortran(fO.funcCallExpr.str) + "(";
+    //DC5: Get returnValue data type. If void ==> subroutine, else function
+    var funcType = getDataTypeString(fO.allGrids[0], null); 
+    var func_head;
+    if (fO.allGrids[0].dataTypes[0] == DataTypes.Void) {
+
+	func_head = "SUBROUTINE " +  var2Fortran(fO.funcCallExpr.str) + "(";
+
+    } else {
+
+	func_head = funcType + " FUNCTION " + 
+		    var2Fortran(fO.funcCallExpr.str) + "(";
+
+    }
 
     // Used to store all the arguments to the function, which in Fortran 
-    // have to be declared explicitly
+    // have to be declared explicitly.
     var func_args_decl = "";
 	
 	// In func_vars we declare the type and name of any grids that were
@@ -2008,15 +2198,17 @@ function getFortranStr4Func(mO, f) {
 
         // TODO: If a grid with specific indices e.g. array[3][1] treat as 
         // passed by value!
-        if (gO.inArgNum >= 0) { // This grid is an incoming arg
+        if (gO.inArgNum >= 0) { // This grid is an incoming arg.
 
-            if (gO.inArgNum > 0) func_head += ","; // arg separator
+            if (gO.inArgNum > 0) func_head += ","; // arg separator.
 
             if (gO.numDims > 1 && gO.typesInDim != -1) {
 
                 //TODO: CAUTION: This is for the case of TYPE variable
                 //	passed using its name (i.e., no specific element).
-                func_head += "typvar_" + gO.caption;
+
+	        func_head += "typvar_" + gO.caption;
+
 
             } else {
 
@@ -2034,7 +2226,10 @@ function getFortranStr4Func(mO, f) {
 
                     if (datatype.indexOf("TYPE") != -1) {
 
-                        func_args_decl += addIndentation(0) + datatype;
+			// TODO: CAUTION: Do I need to discern SoA/AoS?
+			var tmp1 = findTypeVarType(gO,0);
+			var tmp2 = tmp1.replace(/typvar_(.*)\(.*\)/, "typvar_$1");
+                        func_args_decl += addIndentation(0) + tmp2;
                     
 		    } else {
 
@@ -2065,7 +2260,7 @@ function getFortranStr4Func(mO, f) {
 
 		    // TODO: Change if needed. Right now, for main's arguments
 		    // assumption is that the startup args are integers, of 
-                    // dims(4,1)
+                    // dims(4,1).
                     func_args_decl += addIndentation(0) +
                     "INTEGER, DIMENSION(4,1) :: " +
                     var2Fortran(gO.caption) + "\n";
@@ -2078,12 +2273,12 @@ function getFortranStr4Func(mO, f) {
                 func_args_decl += addIndentation(0) + getDataTypeString(
                         gO, null) + " :: " +
                     var2Fortran(gO.caption) + "\n";
-                // TODO: Use commas to separate
-                // For scalars no need to display DIMENSIONS()
+                // TODO: Use commas to separate.
+                // For scalars no need to display DIMENSIONS().
 				
 		// For non-scalar grids, we do nothing (passed by reference).
             	// For scalar-grids, we have to copy the src value into a temp
-	   	// variable called fun_<src_var_name>
+	   	// variable called fun_<src_var_name>.
 				
 		// Initialization occurs as a separate step, to avoid SAVE 
 		// semasiology across function calls (when declaring and 
@@ -2115,12 +2310,16 @@ function getFortranStr4Func(mO, f) {
     //
     // Used for declaration of the ret value declaration within the func.
     // This is always in position 0 in fO.allGrids[].
-    func_vars += addIndentation(0) + getDataTypeString(fO.allGrids[0],
-            null) + " ::" +
-        var2Fortran(fO.allGrids[0].caption) + "\n";
+    //DC5: No need to declare return value in subroutines (void).
+    if (fO.allGrids[0].dataTypes[0] != DataTypes.Void) {
 
+        func_vars += addIndentation(0) + getDataTypeString(fO.allGrids[0],
+            null) + " :: " +
+            var2Fortran(fO.allGrids[0].caption) + "\n";
 
-    // STEP: Code for each step in the function
+    }
+
+    // STEP: Code for each step in the function.
     //
     var step_code = "";
     //
@@ -2141,9 +2340,15 @@ function getFortranStr4Func(mO, f) {
     // leave to the compiler to warn the user that he HAS to use at
     // least one RETURN (or say that there is no need for RETURN as 
     // last_if_indent statement/step if not within branch, etc.)
-    var ret_val_assignment = var2Fortran(fO.funcCallExpr.str) +
-        " = " + var2Fortran(fO.allGrids[0].caption);
+    //DC5: Do NOT print if VOID, i.e., subroutine.
+    var ret_val_assignment = ""; 
+    if (fO.allGrids[0].dataTypes[0] != DataTypes.Void) {
 
+        ret_val_assignment = addIndentation(0) + 
+	    var2Fortran(fO.funcCallExpr.str) +
+            " = " + var2Fortran(fO.allGrids[0].caption) + "\n";
+
+    }
 
     // Construct the final function string that contains:
     // a) the function header (type + name + arguments).
@@ -2157,25 +2362,146 @@ function getFortranStr4Func(mO, f) {
     // h) Initialization of scalar variables that store scalar function
     //    arguments (fun_<scalar_arg_name>).
     // i) computation code for all steps of this function.
-    // j) return value assignment to function name
-    // k) end function statement
+    // j) return value assignment to function name.
+    // k) end function statement.
     var function_string = func_head;
+    function_string += addUSEmodules(stepStart, fO, mO); //NS:
+    function_string += addCommonBlocks(stepStart, fO, mO); //NS2:
     function_string += func_args_decl + func_vars + 
         Row_col_decl + Index_end_decl + TitleDefs_decl + Grids_new_decl +
-        func_val_init + step_code;
-    function_string += addIndentation(0) + ret_val_assignment + "\n";
+        func_val_init + step_code + AllocFreePerFunc;
+    function_string += ret_val_assignment; //DC5: Removed rest from here
     function_string += addIndentation(0) + "RETURN\n" +
-        "END FUNCTION\n\n";
+        "END\n\n"; //DC5: Removed FUNCTION (to support subroutines too).
+
 
     return function_string;
 
 }
 
 
+//NS:
+function addUSEmodules(stepStart, fO, mO) {
+
+    var usedModulesString = "";
+
+    // Create array to hold all USEd modules
+    var usedModules = new Array();
+
+    for (var s = stepStart; s < fO.allSteps.length; s++) {
+
+        var sO = fO.allSteps[s];
+
+	for (var g = 0; g < sO.allGridIds.length; g++) {
+
+	    var gId = sO.allGridIds[g];
+
+	    var gO = fO.allGrids[gId];
+
+	    if (gO.globalRefId != -1 && gO.inExternalMod) {
+
+	        // If not yet added, add it to array
+		if (usedModules.indexOf(gO.nameExternalMod) == -1)
+		    usedModules.push(gO.nameExternalMod);
+
+	    }
+
+	}
+
+    }
+
+    // Go through the USEd modules array and create string USE...
+    for (var i = 0; i < usedModules.length; i++) {
+
+	usedModulesString += addIndentation(0) + "USE " +
+			     usedModules[i] + "\n";
+
+    }
+
+    return usedModulesString;
+
+}
+
+
+//NS2:
+// TODO: Derived TYPEs not supported in common blocks yet.
+function addCommonBlocks(stepStart, fO, mO) {
+
+    var declCOMMONstring1 = "";
+    var declCOMMONstring2 = "";
+
+    // Create array to hold all declared COMMON blocks.
+    // This is to avoid duplicate declarations, as once a var in a common 
+    // block is found ALL of them in a named block need to be declared 
+    // appropriately.
+    var declaredCommons = new Array();
+
+    for (var s = stepStart; s < fO.allSteps.length; s++) {
+
+        var sO = fO.allSteps[s];
+
+	for (var g = 0; g < sO.allGridIds.length; g++) {
+
+	    var gId = sO.allGridIds[g];
+
+	    var gO = fO.allGrids[gId];
+
+	    // Only if it is a grid belonging to COMMON block, that has NOT 
+	    // been declared already.
+	    if (gO.globalRefId != -1 && gO.isCommon && 
+		declaredCommons.indexOf(gO.nameCommon) == -1) {
+
+		var varsInCurrentCommon = "";
+
+		declaredCommons.push(gO.nameCommon);
+
+		// Add ALL grids in global scope that share the same common 
+		// block name.
+
+		// Loop through all grids in global scope
+		for (var gg=0; gg < mO.globalFunc.allGrids.length; gg++) {
+		
+		    var ggO = mO.globalFunc.allGrids[gg];
+
+		    // Take into account only those who are isCommon
+		    if (ggO.isCommon && ggO.nameCommon == gO.nameCommon) {
+
+	                declCOMMONstring1 += addIndentation(0) + 
+					     getDataTypeString(gO, null) + 
+					     " :: " + var2Fortran(ggO.caption) + "\n";
+
+		
+			var ddims = "";
+			if (ggO.numDims > 0) ddims = "(" + getDimensionString(ggO) +")";
+			
+			varsInCurrentCommon += var2Fortran(ggO.caption) + ddims + ", ";
+
+		    }
+
+		}
+
+		// Remove last occur. of ',' from varsInCurrentCommon!
+		varsInCurrentCommon = varsInCurrentCommon.substring(0, varsInCurrentCommon.length -2);
+
+		declCOMMONstring2 += addIndentation(0) + "COMMON /" + 
+				gO.nameCommon + "/ " +
+				varsInCurrentCommon + "\n";
+
+	    }
+
+	}
+
+    }
+
+    return declCOMMONstring1 + declCOMMONstring2;
+
+}
+
+
 //----------------------------------------------------------------------------
-// Returns data type from TypesArray[] as string for a given grid
+// Returns data type from TypesArray[] as string for a given grid.
 // TODO: Special care is needed for multiple data types when titles
-// are present (when multiple data types for rows/columns)
+// are present (when multiple data types for rows/columns).
 // TODO: CAUTION: wrong for multidimensional, but correct. Only called from
 // 				  where gO.typesInDIm == -1? If so, fix.
 // TODO: Added parameter 'e' for when we have an expression and want to find
@@ -2187,7 +2513,7 @@ function getFortranStr4Func(mO, f) {
 //----------------------------------------------------------------------------
 function getDataTypeString(gO, e) {
 
-    // Where to search for dataType (if global, search in position 0)
+    // Where to search for dataType (if global, search in position 0).
     var typeDim;
     if (gO.typesInDim == -1) {
 
@@ -2221,7 +2547,7 @@ function getDataTypeString(gO, e) {
 
             //alert("Passing a TYPE grid");
 
-            return findTypeVarType(gO);
+            return findTypeVarType(gO, 1);
 
         }
     }
@@ -2262,6 +2588,9 @@ function getDataTypeString(gO, e) {
             case 7:
                 alert("Data type: func not supported in Fortran"); //TODO: 
                 break;
+	    case 8: //DC5:
+		return "VOID";
+		break;
             default:
                 alert("Invalid input as data type");
 
@@ -2326,7 +2655,7 @@ function getDimensionString(gO) {
             dimensions_string += modarr[i];
 
             // Do not print comma if types in last dimension or if last 
-	    // dimension is 1 (1D)
+	    // dimension is 1 (1D).
             if (!(typesInDimAlt == 0 && i == 1) && modarr[0] != 1)
                 dimensions_string += ", ";
         }
@@ -2335,7 +2664,7 @@ function getDimensionString(gO) {
 
     if (i != typesInDimAlt) {
 
-        if (modarr[0] != 1) // If 1D (last dimension is 1) do not print it
+        if (modarr[0] != 1) // If 1D (last dimension is 1) do not print it.
             dimensions_string += modarr[0]; 
 	// Last dimension in series with no comma to follow.
 
@@ -2395,7 +2724,7 @@ function createTypeString(gO) {
 	// 'If' refers to the case where we have a TYPE.    
         if (gO.typesInDim != -1) {
 
-            gridDefinition = findTypeVarType(gO);
+            gridDefinition = findTypeVarType(gO, 0);
 
         } else {
 	// 'Else' case refers to a "typical" grid.
@@ -2414,19 +2743,20 @@ function createTypeString(gO) {
 
 
 //----------------------------------------------------------------------------
-// Returns Fortran code for a given step in a given function
+// Returns Fortran code for a given step in a given function.
 //----------------------------------------------------------------------------
 function getFortranStr4Step(fO, sO, mO) {
 
     var grids = "";
     var titleDefs = "";
+    Struct_el_decl = "";
     
     // Used to keep track of which DO loops are parallel, so we
     // can close them appropriately in the reverse order.
     var stepOmpDoStack = new Array();
 
     // Increase step ID (within a function- across functions this is 
-    // re-initialized to zero)
+    // re-initialized to zero).
     CurStep++;
 
     var allocatablesOfStep = "";
@@ -2439,23 +2769,34 @@ function getFortranStr4Step(fO, sO, mO) {
         var gId = sO.allGridIds[g];
         var gO = fO.allGrids[gId];
 
-        if ((gO.inArgNum < 0) && (!gO.isRetVal)) {
+        if ((gO.inArgNum < 0) && (!gO.isRetVal) && (gO.globalRefId == -1)) { //NS: last check
 
             // If grid has been already declared within THIS function, 
-            // do not re-declare
+            // do not re-declare.
             if (!gridDeclaredInFunc(gId)) {
 
                 var newgrid = createTypeString(gO); 
-		// Get the declaration of current grid
-
+		// Get the declaration of current grid.
                 var isAllocGrid = 0;
-                var gridAllocString = "";
 
                 // Get what is inside the parentheses (i.e., the dimensions).
 		// Can be null if it is a scalar grid.
-                var dimensions = newgrid.match(/\((.+)\)/);
+		var dimensions;
+		if (newgrid.indexOf("TYP_") != -1) {
+
+		    dimensions = newgrid.match(/typvar_.+?\((.+)\)/);
+		
+
+		} else {
+                   
+		    dimensions = newgrid.match(/\((.+)\)/);
+
+		}
 
                 if (dimensions != null) {
+
+		    dimensions[0] = dimensions[0].replace(/typvar_.+\(/, "(");
+		    newgrid = newgrid.replace(dimensions[0], "");
 
                     var split_dims = dimensions[1].replace(/ /g, "");
                     split_dims = split_dims.split(",");
@@ -2491,48 +2832,52 @@ function getFortranStr4Step(fO, sO, mO) {
 
                     }
 
-		    // If it is an allocatable (non-scalar) grid:
-                    if (isAllocGrid) {
 
-                        //Construct allocatable grids declaration string.
-                        gridAllocString = newgrid.replace(" ",
-                            " ALLOCATABLE, ");
+		    var tmp_dim_alloc = "";
+		    for(var i = 0; i < split_dims.length - 1; i++)
+		        tmp_dim_alloc += split_dims[i] + ",";
+			
+		    tmp_dim_alloc += split_dims[split_dims.length - 1];
+		
+		    var gridNam;
+		    if(gO.typesInDim == -1)
+		        gridNam = var2Fortran(gO.caption);
+		    else 
+	                gridNam = "typvar_" + gO.caption;
 
-                        gridAllocString = gridAllocString.replace(
-                            /\(.+\)/, "(" + colons.slice(0, colons.length -
-                                1) + ")");
 
-			// ...and do actual allocation by calling ALLOCATE.
-                        allocatablesOfStep += addIndentation(0) +
-                            "ALLOCATE(" + var2Fortran(gO.caption) + "(" +
-                            split_dims + "))\n";
+                    // Construct allocatable grids declaration string.
+		    if (newgrid.indexOf("TYP_") == -1) {
 
-                    }
-		    // If it is a "regular" non-scalar grid, it will have 
-		    // its dimensions and not colons in place of dimensions.
+                        newgrid = newgrid.replace(" ", " ALLOCATABLE, ");
+			newgrid = newgrid.replace("DIMENSION", "DIMENSION(" + 
+				colons.slice(0, colons.length - 1) + ")");
+
+		    } else {
+			 // Corresponds to AoS (TYPE (TYP_<NAME>), DIMENSION(:)
+			 // :: typvar_<NAME>(<DIMS>)
+			 newgrid = newgrid.replace("),", "), ALLOCATABLE,");
+
+		    }
+
+                    allocatablesOfStep += addIndentation(0) +
+                          "ALLOCATE(" + gridNam + "(" + tmp_dim_alloc + "))\n";
+                            
 
                 }
 
-		// Commenting
+		// Commenting.
 		if(gO.comment != null) 
 		    grids += addIndentation(0) + "! " + gO.comment + "\n";
 
-                if (isAllocGrid) {
-		    
-                    grids += addIndentation(0) + gridAllocString;
-
-                } else {
-
-                    grids += addIndentation(0) + newgrid;
-
-                }
+                grids += addIndentation(0) + newgrid;
 
                 // Push into list of grids that have been declared (in the 
                 // context of the current function being parsed).
                 GridsInFunc.push(gId);
 
             }
-        }
+        } 
 
 
         // STEP: Get var defs for titles.
@@ -2563,8 +2908,8 @@ function getFortranStr4Step(fO, sO, mO) {
     }
 
 
-    // STEP: Create Fortran do loops (a loop for each index var)
-    // Note: rangeExpr.exprArr[] contains root range expressions
+    // STEP: Create Fortran do loops (a loop for each index var).
+    // Note: rangeExpr.exprArr[] contains root range expressions.
     //
     var rangeExpr = sO.boxExprs[CodeBoxId.Range];
     var loop_close = "";
@@ -2574,7 +2919,7 @@ function getFortranStr4Step(fO, sO, mO) {
     // in parallel code generation it only stores paral/ble ones.
     
     var forstr2 = ""; 
-    // Used in parallel code generation to store non-parallelizable loops
+    // Used in parallel code generation to store non-parallelizable loops.
 
     var collapsed_loop_vars = ""; 
     // Used in parallel code generation, to store all loop variables, 
@@ -2589,7 +2934,7 @@ function getFortranStr4Step(fO, sO, mO) {
     var index_extra_indent = 0;
 
 
-    // if there are index variables
+    // if there are index variables.
     //
     if (rangeExpr && rangeExpr.exprArr && rangeExpr.isForeach()) {
 
@@ -2629,7 +2974,7 @@ function getFortranStr4Step(fO, sO, mO) {
             // TODO: FIX FIX FIX
             var ivar = var2Fortran(rexpr.labelExpr.str);
 
-            // Define the value of literal 'end'
+            // Define the value of literal 'end'.
             var endv = var2Fortran(DefEndName + rexpr.selDim);
 
             //TODO: Why did I change the below to the above?			
@@ -2655,8 +3000,66 @@ function getFortranStr4Step(fO, sO, mO) {
             //
             var actendval = rexpr.gO.dimActSize[rexpr.selDim];
             var dynendval = rexpr.gO.dimDynSize[rexpr.selDim];
-            var endval = (dynendval) ? "SIZE(" + var2Fortran(rexpr.gO.caption) +
+	    var endval;
+	    // If regular grid (i.e., not TYPE)
+	    //DC10: or a scalar grid that is part of an (existing) struct
+	    if (rexpr.gO.typesInDim == -1) {
+
+		//DC10:
+		var tmpp;
+	    	if (rexpr.gO.structCaption == null) {
+
+                	tmpp = var2Fortran(rexpr.gO.caption);
+	    
+	    	} else {
+
+			tmpp = rexpr.gO.structCaption + "%" + rexpr.gO.caption;
+
+	    	}
+
+
+	        endval = (dynendval) ? "SIZE(" + tmpp +
                 ", " + (rexpr.selDim + 1) + ")" : actendval;
+
+	    } else {
+
+		if (Soa) {
+
+		    // E.g., if typesInDim = 0, then end0 not used, 
+		    //       end1 = SIZE(...%dim0, 2) and end2 = SIZE(..., 1)
+		    //       if typesInDim = 1, then end1 not used,
+		    //       end0 = SIZE(...%dim0, 2) and end2 = SIZE(..., 1)
+		    //var dimSel = (rexpr.selDim > rexpr.gO.typesInDim) ? 
+		    //		 rexpr.gO.numDims - rexpr.selDim : 
+		    //		 rexpr.gO.numDims - rexpr.selDim - 1;
+		
+		    var dimSel = (rexpr.selDim > 0) ?
+				 rexpr.gO.numDims - rexpr.selDim :
+				 rexpr.gO.numDims - rexpr.gO.typesInDim; 
+
+		    // If SoA, we need to get the size of any of the elements
+		    // Remember: all will have the same dimensions by design.
+		    endval = (dynendval) ? "SIZE(" + "typvar_" + 
+		    	     rexpr.gO.caption + "%" +
+			     rexpr.gO.dimTitles[gO.typesInDim][0] +
+                             ", " + dimSel + ")" : actendval; //DC:
+
+		    //endval = (dynendval) ? "SIZE(" + "typvar_" + 
+		    //	     rexpr.gO.caption + "%dim0" +
+                    //       ", " + dimSel + ")" : actendval; //DC:
+		
+		} else {
+
+		    // If AoS, always 1D, so 1st dimension in SIZE().
+		    endval = (dynendval) ? "SIZE(" + "typvar_" + 
+			     rexpr.gO.caption +
+                             ", " + "1" + ")" : actendval;
+
+
+		}
+
+	    }
+
 
 	    // In parallel code generation, if loop is parallel, we append the
 	    // endval to the collapsed loop vars, else we declare it normally
@@ -2671,15 +3074,15 @@ function getFortranStr4Step(fO, sO, mO) {
                         "-1\n";
 
                 } else {
-
-                    forstr2 += addIndentation(iv) + endv + " = " + endval +
+		    //DC9:
+                    forstr2 += addIndentation(0) + endv + " = " + endval +
                         "-1\n";
 
                 }
 
             } else {
-
-                forstr += addIndentation(iv) + endv + " = " + endval +
+		//DC9:
+                forstr += addIndentation(0) + endv + " = " + endval +
                     "-1\n";
 
             }
@@ -2767,12 +3170,13 @@ function getFortranStr4Step(fO, sO, mO) {
 	// For both, the assumption is that an index variable CANNOT
 	// be allowed to be used as a boundary variable in ANOTHER loop, or step
 	// or start condition!
-	// TODO: CAUTION: When we allow this in the GUI, will need to take care.	// TODO: CAUTION: Need ordering for forst2, too, when exists. 
+	// TODO: CAUTION: When we allow this in the GUI, will need to take care.	
+	// TODO: CAUTION: Need ordering for forst2, too, when exists. 
 	// VERIFY SAFETY IS ENFORCED (for serial, need to check if independent?)
 
 	// Loop re-ordering to be suitable to language's array storage format.
-	// indX, row, col: for C
-	// indX, col, row: for Fortran
+	// indX, row, col: for C.
+	// indX, col, row: for Fortran.
 	
 
 	var higherDims = new Array();
@@ -2796,6 +3200,7 @@ function getFortranStr4Step(fO, sO, mO) {
 	// (a) the first in descending order (e.g., ind4,ind2)
 	// (b) the second in [c]olumn, [r]ow (for Fortran col-major-friendly
 	// format).
+	// TODO: WARNING: Order may affect results (even in paral/ble loops)?
 	higherDims.sort();
 	higherDims.reverse();
 	forStrArr.sort();
@@ -2805,8 +3210,8 @@ function getFortranStr4Step(fO, sO, mO) {
 
 	// Create the FOR loops' string in this order:
 	for (var i = 0; i < forStrArr.length; i++) {
-
-	    forstr += addIndentation(iv) + "DO " + forStrArr[i][0] + " = " +
+	    //DC9:
+	    forstr += addIndentation(i) + "DO " + forStrArr[i][0] + " = " +
                         forStrArr[i][1] + ", " + forStrArr[i][2] + ", " +
                         forStrArr[i][3] + "\n";
 
@@ -2825,7 +3230,7 @@ function getFortranStr4Step(fO, sO, mO) {
 
                 if (collapse && iv == num_index_vars - 1) {
 
-                    //Only for last one and only if collapse
+                    // Only for last one and only if collapse.
                     loop_close += addIndentation(0) +
                         "!$OMP END PARALLEL DO\n";
 
@@ -2833,8 +3238,8 @@ function getFortranStr4Step(fO, sO, mO) {
 
 		// TODO: May be needed in autotuning multiple combinations
 		// of collapsing/non-collapsing loops. 
-                //Here need to close the appropriate OMP DO loop.
-                //loop_close += stepOmpDoStack.pop();
+                // Here need to close the appropriate OMP DO loop.
+                // loop_close += stepOmpDoStack.pop();
 
             } else {
 
@@ -2873,7 +3278,7 @@ function getFortranStr4Step(fO, sO, mO) {
     for (var box = CodeBoxId.Range + 1; box < sO.boxAttribs.length; box++) {
 
         // Step: close braces -- if there is a reduction in indent level
-        //       from previous, close braces
+        //       from previous, close braces.
         //
         prev_indent = indent;
 	if (mask_unmatched == 0) {
@@ -2884,13 +3289,13 @@ function getFortranStr4Step(fO, sO, mO) {
 
         var boxexpr = sO.boxExprs[box];
 
-        // Step: handle mask statment if/else/elseif/breakif
+        // Step: handle mask statment if/else/elseif/breakif.
         //
         if (sO.boxAttribs[box].isMask()) {
 
             if (boxexpr.isElse()) {
 
-                // 'else' has no expression between ()
+                // 'else' has no expression between ().
 
                 var tmp2 = last_if_indent;
                 for (var i = indent; i < tmp2; i++) {
@@ -2905,7 +3310,7 @@ function getFortranStr4Step(fO, sO, mO) {
                 stmt += addIndentation(last_if_indent +
                     index_extra_indent) + "ELSE\n";
 
-		// Commenting
+		// Commenting.
 		if (sO.boxAttribs[box].comment != null) 
 		    stmt += addIndentation(last_if_indent +
                     	    index_extra_indent) + "! " + 
@@ -2915,12 +3320,12 @@ function getFortranStr4Step(fO, sO, mO) {
 
             } else if (boxexpr && boxexpr.exprArr && boxexpr.exprArr.length) {
 
-                // condition with child expression  -- if/elseif/breakif
+                // condition with child expression  -- if/elseif/breakif.
                 //
 
                 if (boxexpr.isIf()) {
 
-                    mask_unmatched++; // Increase unmatched if stmts
+                    mask_unmatched++; // Increase unmatched if stmts.
                     
                     var tmp2 = last_if_indent;
 
@@ -2937,12 +3342,12 @@ function getFortranStr4Step(fO, sO, mO) {
                         "IF" + "(" + expr2FortranString(boxexpr) +
                         ") THEN\n";
 
-		    // Commenting
+		    // Commenting.
 		    if (sO.boxAttribs[box].comment != null) 
 		        stmt += addIndentation(indent + index_extra_indent) + 
 				"! " + sO.boxAttribs[box].comment + "\n";
 
-                    last_if_indent = indent; // So that we can close it later
+                    last_if_indent = indent; // So that we can close it later.
                     
                 } else if (boxexpr.isElseIf()) {
 
@@ -2960,13 +3365,13 @@ function getFortranStr4Step(fO, sO, mO) {
                         "ELSEIF" + "(" + expr2FortranString(boxexpr) +
                         ") THEN\n";
                     
-		    // Commenting
+		    // Commenting.
 		    if (sO.boxAttribs[box].comment != null) 
 			stmt += addIndentation(indent + index_extra_indent) + 
 				"! " + sO.boxAttribs[box].comment + "\n";
 
                 } else {
-                    // TODO: What is this case doing? (breakif)
+                    // TODO: What is this case doing? (breakif).
                     stmt += addIndentation(indent + index_extra_indent) +
                         boxexpr.str + "(" +
                         expr2FortranString(boxexpr) + ") {\n";
@@ -2983,15 +3388,15 @@ function getFortranStr4Step(fO, sO, mO) {
 
         } else {
 
-            // Step: Process a formula statement
+            // Step: Process a formula statement.
 	    
-	    // Commenting
+	    // Commenting.
 	    if (sO.boxAttribs[box].comment != null) 
 	        stmt += addIndentation(indent + index_extra_indent) + 
                         "! " + sO.boxAttribs[box].comment + "\n";
 
             // TODO: Do some more checking on the following. May be trickier 
-            // than that
+            // than that.
             if (sO.boxAttribs[box].indent <= last_if_indent) {
 
                 for (var i = 0; i <= (last_if_indent - sO.boxAttribs[box]
@@ -3042,13 +3447,40 @@ function getFortranStr4Step(fO, sO, mO) {
 
                 } else {
 
+		    //DC10: Adding scalar variables in a (potentially) parallel
+		    //      loop in the PRIVATE() list.
+		    if (ShowParallel) {
+			    
+			var gO = boxexpr.exprArr[0].gO;
+			
+			// TODO: WARNING: If we directly enter other than row/col as
+			//       index, and we DON'T do it via CLICKING on the intersection
+			//       on the grid, then we may get null (because of how the
+			//       expression is created).
+			if (gO == null) {
+
+				alert("Error: NULL gO");
+
+			}
+			// For scalar variables only (on the LHS, i.e., written).
+			// TODO: Also, before should be "(", or ", "
+			if (gO.numDims == 0 && 
+			private_vars.indexOf(boxexpr.exprArr[0].str + ", ") == -1) {
+
+			    private_vars += var2Fortran(boxexpr
+			    .exprArr[0].str) + ", ";
+
+			}
+
+		    }
+
                     currFormLine = addIndentation(indent + index_extra_indent) +
                         expr2FortranString(boxexpr) + "\n";
 
                 }
 
                 // In current formula box: Loop through the exprArr[] 
-                // array and detect if there are functions (isFuncCall())
+                // array and detect if there are functions (isFuncCall()).
                 for (var lp = 2; lp < boxexpr.exprArr.length; lp++) {
                     // TODO: If +=, -=, etc. then checking 2 is redundant?
 
@@ -3133,14 +3565,16 @@ function getFortranStr4Step(fO, sO, mO) {
             } else if (boxexpr.exprArr[0] != null &&
                 boxexpr.exprArr[0].type == ExprType.Return) {
 
-                // Check if return statement in position 0 (can't be 
-                // anywhere else)
+		// TODO:
+                // 1) Check if return statement in position 0 (can't be 
+                // anywhere else).
+		// 2) If in subroutine, disallow 'return <returnValue>'
 
                 var return_expression = "";
                 var ret_val_assignment = "";
 
                 // Parse the expression to be returned and save in order to
-                // assign to the function's name (i.e., value to be returned)
+                // assign to the function's name (i.e., value to be returned).
                 for (var i = 1; i < boxexpr.exprArr.length; i++) {
 
                     if (i > 0) return_expression += " ";
@@ -3150,20 +3584,26 @@ function getFortranStr4Step(fO, sO, mO) {
 
                 }
 
-                if (boxexpr.exprArr.length != 1) {
+		// If subroutine, then no assignment of return value
+		if (fO.allGrids[0].dataTypes[0] != DataTypes.Void) {
 
-                    ret_val_assignment = var2Fortran(fO.funcCallExpr.str) +
-                        " = " + return_expression;
+                    if (boxexpr.exprArr.length != 1) {
 
-                } else {
+                        ret_val_assignment = var2Fortran(fO.funcCallExpr.str) +
+                            " = " + return_expression;
 
-                    ret_val_assignment = var2Fortran(fO.funcCallExpr.str) +
-                        " = " + var2Fortran(fO.allGrids[0].caption);
+                    } else {
 
-                }
+                        ret_val_assignment = var2Fortran(fO.funcCallExpr.str) +
+                            " = " + var2Fortran(fO.allGrids[0].caption);
 
-                stmt += addIndentation(indent + index_extra_indent) +
-                    ret_val_assignment + "\n" + addIndentation(indent +
+                    }
+
+		    stmt += addIndentation(indent + index_extra_indent) +
+                    	ret_val_assignment + "\n" 
+		}
+
+                stmt += addIndentation(indent +
                         index_extra_indent) + "RETURN\n";
 
             } else {
@@ -3174,12 +3614,27 @@ function getFortranStr4Step(fO, sO, mO) {
                 if (boxexpr !== undefined && boxexpr.exprArr[0] !==
                     undefined && boxexpr.exprArr[0].isLet()) {
 
-                    var let_data_type = findLetTypeCont(boxexpr, 0, mO); 
+		    //DC10: Avoid duplicate declaration of same-named LET stmts
+		    // If grid has been already declared within THIS function, 
+ 	            // do not re-declare.
+		    // Note: For LET stmts we don't use gId, but their name.
+		    var gId = boxexpr.exprArr[0].exprArr[0].str;
+         	    if (!gridDeclaredInFunc(gId)) {
 
-                    grids += addIndentation(0) + let_data_type + " " +
-                        var2Fortran(boxexpr.exprArr[0].exprArr[0].str) +
-                        "\n";
+                        var let_data_type = findLetTypeCont(boxexpr, 0, mO); 
+
+		        //DC10: Added "::"
+                        grids += addIndentation(0) + let_data_type + " :: " +
+                            var2Fortran(boxexpr.exprArr[0].exprArr[0].str) +
+                            "\n";
 		    
+			
+			// Push into list of grids that have been declared (in the 
+	                // context of the current function being parsed).
+        	        GridsInFunc.push(gId);
+
+		    }
+
                     if (ShowParallel) {
 			    
 			private_vars += var2Fortran(boxexpr
@@ -3191,6 +3646,7 @@ function getFortranStr4Step(fO, sO, mO) {
 
                     for (var let_ass = 1; let_ass < boxexpr.exprArr.length; let_ass++) {
 
+			if (let_ass > 1) let_RHS += " ";
                         let_RHS += expr2FortranString(boxexpr.exprArr[
                             let_ass]);
 
@@ -3260,9 +3716,14 @@ function getFortranStr4Step(fO, sO, mO) {
 			// parallelism procedures, they still see only a 
 			// standalone function at this box.
 
-                        grids += addIndentation(0) + getDataTypeString(mO
+			//DC5: Not needed in the case of subroutines (i.e., void)
+			//     return value.
+			if (mO.allFuncs[f].allGrids[0].dataTypes[0] != DataTypes.Void) {
+
+                            grids += addIndentation(0) + getDataTypeString(mO
                                 .allFuncs[f].allGrids[0], null) + " :: " +
-                            "res_" + boxexpr.exprArr[0].str + "\n";
+                                "res_" + boxexpr.exprArr[0].str + "\n";
+			}
 
                     }
 
@@ -3303,17 +3764,31 @@ function getFortranStr4Step(fO, sO, mO) {
 
 		    }
 
-                    stmt += addIndentation(indent + index_extra_indent) +
-                        "res_" + boxexpr.exprArr[0].str + " = " +
-                        funcCallName + "\n";
+		    //DC5: Not needed in case of subroutines (i.e., void ret. value).
+		    if (mO.allFuncs[f].allGrids[0].dataTypes[0] != DataTypes.Void) {
+
+                        stmt += addIndentation(indent + index_extra_indent) +
+                            "res_" + boxexpr.exprArr[0].str + " = " +
+                            funcCallName + "\n";
+
+		    } else {
+
+			stmt += addIndentation(indent + index_extra_indent) +
+			    "CALL " + funcCallName + "\n";
+
+		    }
 
                 } else { 
 		
 		    // Anything else (including library functions - taken care
 		    // within expr2FortranString).
+		    //DC9:
+                    var tmp_stmt = expr2FortranString(boxexpr);
 
-                    stmt += addIndentation(indent + index_extra_indent) +
-                        expr2FortranString(boxexpr) + "\n";
+		    if (tmp_stmt != "") 
+		        stmt += addIndentation(indent + index_extra_indent) +
+			        tmp_stmt + "\n";
+
 
                 }
 
@@ -3351,6 +3826,20 @@ function getFortranStr4Step(fO, sO, mO) {
     // OMP PARALLEL DO directive AND private variables.
     if (ShowParallel) {
 
+	// DC10: Remove private variables that are also reduction variables
+	if (Pragma_reduction[funcID][CurStep] != "") {
+
+	    var regex = new RegExp(/: (.*)\)/);
+	    var toFind = Pragma_reduction[funcID][CurStep].match(regex);	
+	    if (private_vars.indexOf(toFind[1]) != -1) {
+
+	 	//alert("FOUND!");
+		private_vars = private_vars.replace(toFind[1] + ", ", "");	
+
+	    }
+
+	}
+
         // If we don't have a parallel loop, then do not use private.
         if (forstr.length != 0 && private_vars != "") {
             private_vars = private_vars.replace(/, +$/, "");
@@ -3375,6 +3864,21 @@ function getFortranStr4Step(fO, sO, mO) {
 
     }
 
+
+
+    // In order to obtain the dynamic variables we parse the allocatablesOfStep
+    // variable and Struct_el_decl and process accordingly.
+    var allocatablesFree = allocatablesOfStep.replace(/^\tALLOCATE\(ft_(.+)\(.+$/mg, "\tDEALLOCATE(ft_$1)");
+    // This takes care of AoS.
+    allocatablesFree = allocatablesFree.replace(/^\tALLOCATE\(typvar_(.+)\(.+$/mg, 
+		       "\tDEALLOCATE(typvar_$1)");
+    // This takes care of elements of SoA.
+    allocatablesFree += Struct_el_decl.replace(/^\tALLOCATE\(typvar_(.+)\(.+$/mg, 
+		        "\tDEALLOCATE(typvar_$1)");
+    // TODO: Also, make sure AoS/SoA frees function correctly.
+    AllocFreePerFunc += allocatablesFree;
+
+
     // STEP: Combine all the above components together:
     // a) Loop variables' initialization from collapsed loops.
     // b) Allocatable variables of step.
@@ -3382,13 +3886,13 @@ function getFortranStr4Step(fO, sO, mO) {
     // d) Actual step computation code.
     // e) Loop closing clauses (serial and/or parallel).
 
-    // Commenting
+    // Commenting.
     var code = (sO.title == null) ? "" : addIndentation(0) + "!" + 
 	       sO.title + "\n"; 
     code += (sO.stepComment == "") ? "" : addIndentation(0) + "!" + 
 	    sO.stepComment + "\n";
-    code += allocatablesOfStep + collapsed_loop_vars + forstr + forstr2 +
-        stmt + loop_close;
+    code += allocatablesOfStep + Struct_el_decl + collapsed_loop_vars + 
+	    forstr + forstr2 + stmt + loop_close;
 
     return (code);
 
@@ -3408,13 +3912,13 @@ function findLetType(argexpr, mO) {
 
         if (sO.boxExprs[b]) {
 
-            // First expression in the expression statement
+            // First expression in the expression statement.
             //
             var expr0 = sO.boxExprs[b].exprArr[0];
 
             if (expr0 && expr0.isLet()) {
 
-                // Note: Let name is present in exprArr[0] position
+                // Note: Let name is present in exprArr[0] position.
                 //
                 if (expr0.exprArr[0].str == argexpr.str) {
 
@@ -3558,7 +4062,7 @@ function findLetTypeCont(boxexpr, asDataTypes, mO) {
 
     if (asDataTypes) {
 
-        //Return using their numeric equivalent in DataTypes
+        //Return using their numeric equivalent in DataTypes.
         return let_data_type;
 
     } else {
@@ -3593,29 +4097,73 @@ function addIndentation(indent) {
 // type, so we need to append to TypeStr the declaration of the TYPE and its 
 // body.
 // --------------------------------------------------------------------------
-function findTypeVarType(gO) {
+function findTypeVarType(gO, onlyDataType) {
 
     var gridDefinition = "";
     var typename = "";
 
     // Convention: variable named as <typvar_><grid name> 
     // (e.g., Out -> typvar_Out).
-    var typeVariable = "typvar_" + gO.caption;
+    typeVariable = "typvar_" + gO.caption;
 
     var tmp_type_body = "";
+
+    var tmp_length = gO.dimDynSize[gO.typesInDim];
+    tmp_length = (tmp_length) ? tmp_length : gO.dimActSize[gO.typesInDim];
+    // TODO: This should NOT be allowed by GUI.
+    if(isNaN(tmp_length)) 
+        alert("Number of elements in a struct cannot be dynamic.");
 
     // 'If' case refers to structure of arrays, 'else' to array of structures.
     // In either case, we have a different way of declaring the TYPE's body,
     // as the difference of SoA vs. AoS is.
-    // TODO: CAUTION: Dynamic value for number of elements in a struct should 
-    // NOT be allowed by GUI.
     if (Soa) {
 
         for (var i = 0; i < gO.dimActSize[gO.typesInDim]; i++) {
 
-            tmp_type_body += dataTypeIntToStr(gO.dataTypes[i]) +
-                ", DIMENSION(" + getDimensionString(gO) + ") :: " + "dim" +
-                i + "\n";
+            // We use assumed array sizes, so that we cover the
+            // general case including the allocatable grids.
+            // In this case we use ':' for each dimension, in
+	    // DIMENSIONS().
+	    var assumed_size = "";
+            for (var t = 0; t < getDimensionString(gO).split(
+                 ",").length - 1; t++) {
+
+                assumed_size += ":,";
+                        
+	    }
+
+            assumed_size += ":";
+
+
+	    // For SoA, elements are dynamically allocated (since
+	    // stack may not be big enough, and to allow passing
+	    // of pointers when passign a struct as a parameter).
+
+	    tmp_type_body += dataTypeIntToStr(gO.dataTypes[i]) +
+                ", DIMENSION(" + assumed_size + "), ALLOCATABLE :: " + 
+	    	gO.dimTitles[gO.typesInDim][i] + "\n"; //DC:
+
+            //tmp_type_body += dataTypeIntToStr(gO.dataTypes[i]) +
+            //    ", DIMENSION(" + assumed_size + "), ALLOCATABLE :: " + 
+	    //	"dim" + i + "\n"; //DC:
+
+	     // Get dimensions of struct elements, so as to allocate in function.
+	    // NOTE: We're using the getDimensionString_C version (which is 
+	    //       fine since we are consistent with the method.
+	    var tmp_alloc_str = getDimensionString_C(gO);
+	    tmp_alloc_str = tmp_alloc_str.replace("][", ","); 
+	    tmp_alloc_str = tmp_alloc_str.replace(/^\[|\]$/g, "");
+	    if (tmp_alloc_str == "") tmp_alloc_str = 1; 
+	    
+	    Struct_el_decl += addIndentation(0) + "ALLOCATE(" + 
+		typeVariable + "%" + gO.dimTitles[gO.typesInDim][i] + 
+		"(" +  tmp_alloc_str   + "));\n" ; //DC:
+
+
+	    //Struct_el_decl += addIndentation(0) + "ALLOCATE(" + 
+	    //	typeVariable + "%dim" + i + "(" +  tmp_alloc_str   + 
+	    //	"));\n" ; //DC:
 
         }
 
@@ -3623,8 +4171,11 @@ function findTypeVarType(gO) {
 
         for (var i = 0; i < gO.dimActSize[gO.typesInDim]; i++) {
 
-            tmp_type_body += dataTypeIntToStr(gO.dataTypes[i]) + " :: " +
-                "dim" + i + "\n";
+	    tmp_type_body += dataTypeIntToStr(gO.dataTypes[i]) + " :: " +
+                gO.dimTitles[gO.typesInDim][i] + "\n"; //DC:
+
+            //tmp_type_body += dataTypeIntToStr(gO.dataTypes[i]) + " :: " +
+            //    "dim" + i + "\n"; //DC:
 
         }
 
@@ -3664,23 +4215,35 @@ function findTypeVarType(gO) {
     } else {
         
         // TODO: We may want to follow a more general convention (another 
-	// naming scheme based on IDs)
+	// naming scheme based on IDs).
         typename = gO.caption;
 
     }
 
+    gridDefinition = "TYPE (TYP_" + typename;
 
-    if (Soa) {
+    if (!onlyDataType) {
 
-        gridDefinition = "TYPE (" + "TYP_" + typename + ") " +
-            typeVariable + "\n";
+        if (Soa) {
 
-    } else {
+            gridDefinition += ") " + typeVariable + "\n";
 
-        gridDefinition = "TYPE (" + "TYP_" + typename + ") " +
-            ", DIMENSION(" + getDimensionString(gO) + ") :: " +
-            typeVariable + "\n";
+        } else {
 
+	    if (gO.numDims > 1) {
+
+                gridDefinition += "), DIMENSION(:) :: " +
+                    typeVariable + "(" + getDimensionString(gO) + ")\n";
+	
+	    } else {
+
+		gridDefinition += ") " + typeVariable + "("
+			getDimensionString(gO) + ");\n";
+
+	    }
+
+        }
+   
     }
 
     if (res == null) {

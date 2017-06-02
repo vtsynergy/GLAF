@@ -43,6 +43,102 @@ var InclMath;
 // we keep everything into a single C file - i.e., no H/library file).
 var Func_prototypes;
 
+//DC99:
+// Holds the code for used library functions for C code generation
+var LibFunctionsCode_C;
+
+//DC99:
+//TODO: Add support for the LARGE test file.
+var LibLoadCSR_C =
+    "void readCSR(int neq, int nb, int* iam, int* jam, double* a_off, " + 
+    		 "double* a_diag_lu, double* dq, double* dqc, double* res, " +  
+		 "int* color_indices) {\n" +
+    "	int k;\n" +
+    "	int nnz, row;\n" +
+    "	// Use sample distribution for random generated matrix\n" +
+    "	iam = (int *)malloc(sizeof(int)*(neq+3));\n" +
+    "	if (iam == NULL)\n" +
+    "	    printf(\"Error Allocating iam\\n\");\n" +
+    "	FILE* file_ptr;\n" +
+    "	// Read iam file\n" +
+    "	if (neq == 6309) {\n" +
+    "		file_ptr = fopen(\"iamS.txt\", \"r\");\n" +	
+    "		for (row = 0; row < 1052; row++) {\n" +		
+    "			k = row * 6;\n" +
+    "			// Reads 6 values from current line into iam[]\n" +
+    "			fscanf(file_ptr, \"%d\", &iam[k]);\n" +
+    "			fscanf(file_ptr, \"%d\", &iam[k+1]);\n" +
+    "			fscanf(file_ptr, \"%d\", &iam[k+2]);\n" +
+    "			fscanf(file_ptr, \"%d\", &iam[k+3]);\n" +
+    "			fscanf(file_ptr, \"%d\", &iam[k+4]);\n" +
+    "			fscanf(file_ptr, \"%d\", &iam[k+5]);\n" +
+    "		}\n" +	
+    "		fclose(file_ptr);\n" +	
+    "	}\n" +
+    "	// Allocating memory based on number of non-zeros\n" +
+    "	nnz = iam[neq] - 1; //TODO:verify +1 !\n" +
+    "	jam = (int *)malloc(sizeof(int)*nnz);\n" +
+    "	if (jam == NULL)\n" +
+    " 		printf(\"Error Allocating jam\\n\");\n" +
+    "	a_off = (double *)malloc(sizeof(double)*nb*nb*nnz);\n" +
+    "	if (a_off == NULL)\n" +
+    "		printf(\"Error Allocating a_off\\n\");\n" +
+    "	a_diag_lu = (double *)malloc(sizeof(double)*nb*nb*neq);\n" +
+    "	if (a_diag_lu == NULL)\n" +
+    "		printf(\"Error Allocating a_diag_lu\\n\");\n" +
+    "	dq = (double *)malloc(sizeof(double)*nb*neq);\n" +
+    "	if (dq == NULL)\n" +
+    "		printf(\"Error Allocating dq\\n\");\n" +
+    "	dqc = (double *)malloc(sizeof(double)*nb*neq);\n" +
+    "	if (dqc == NULL)\n" +
+    "		printf(\"Error Allocating dqc\\n\");\n" +
+    "	res = (double *)malloc(sizeof(double)*nb*neq);\n" +
+    "	if (res == NULL)\n" +
+    "		printf(\"Error Allocating res\\n\");\n" +
+    "	// Read and generate rest of data\n" +
+    "	if (neq == 6309) {\n" +
+    "		file_ptr = fopen(\"jamS.txt\", \"r\");\n" +
+    "		for (row = 0; row < 14295; row++) {\n" +
+    "			k = row * 6;\n" +
+    "			// Reads 6 values from current line into jam[]\n" +
+    "			fscanf(file_ptr, \"%d\", &jam[k]);\n" +
+    "			fscanf(file_ptr, \"%d\", &jam[k+1]);\n" +
+    "			fscanf(file_ptr, \"%d\", &jam[k+2]);\n" +
+    "			fscanf(file_ptr, \"%d\", &jam[k+3]);\n" +
+    "			fscanf(file_ptr, \"%d\", &jam[k+4]);\n" +
+    "			fscanf(file_ptr, \"%d\", &jam[k+5]);\n" +
+    "		}\n" +	
+    "		fclose(file_ptr);\n" +	
+    "	}\n" +
+    "	if (neq == 6309) {\n" +	
+    "		file_ptr = fopen(\"color_indicesS.txt\", \"r\");\n" +	
+    "		for (row = 0; row < 4; row++) {\n" +
+    "			k = row * 5;\n" +
+    "			// Reads 5 values from current line into color_indices[]\n" +
+    "			fscanf(file_ptr, \"%d\", &color_indices[k]);\n" +
+    "			fscanf(file_ptr, \"%d\", &color_indices[k+1]);\n" +
+    "			fscanf(file_ptr, \"%d\", &color_indices[k+2]);\n" +
+    "			fscanf(file_ptr, \"%d\", &color_indices[k+3]);\n" +
+    "			fscanf(file_ptr, \"%d\", &iam[k+4]);\n" +
+    "		}\n" +	
+    "		fclose(file_ptr);\n" +
+    "	}\n" +
+    "	// Generate a_off, a_diag_lu, dq, res\n" +
+    "	//TODO: Generate random numbers as needed equivalent to fortran\n" +
+    "	//CAUTION: we do not apply the exact analogous to Fortran\n" + 
+    "	//random_number()\n" +
+    "	for (row = 0; row < nb * nb * nnz; row++)\n" +
+    "		a_off[row] = 0.1 * (rand()/(double)RAND_MAX);\n" +
+    "	for (row = 0; row < nb * nb * neq; row++)\n" +
+    "		a_diag_lu[row] = 0.1 * (rand()/(double)RAND_MAX);\n" +
+    "	for (row = 0; row < nb * neq; row++)\n" +
+    "		dq[row] = 0.1 * (rand()/(double)RAND_MAX);\n" +
+    "	for (row = 0; row < nb * neq; row++)\n" +
+    "		res[row] = 0.1 * (rand()/(double)RAND_MAX);\n" +
+    "	for (row = 0; row < nb * neq; row++)\n" +
+    "		dqc[row] = dq[row];\n" +
+    "}\n\n";
+
 
 //----------------------------------------------------------------------------
 // Returns the appropriate code for library functions, in C.
@@ -131,7 +227,34 @@ function processLibFunctions_C(e) {
         // TODO: Must be a REAL grid cell or a REAL grid name.
         pre = "rand("
 
+    } else if (e.str == "FileInput.loadCSRFile") {
+	
+	//DC99:
+	// Build appropriate function call (call + arguments).
+	pre = "readCSR(";
+	ret = expr2FortranString(e.exprArr[0]) + ", " +
+	      expr2FortranString(e.exprArr[1]) + ", " +
+	      expr2FortranString(e.exprArr[2]) + ", " +
+	      expr2FortranString(e.exprArr[3]) + ", " +
+	      expr2FortranString(e.exprArr[4]) + ", " +
+	      expr2FortranString(e.exprArr[5]) + ", " +
+	      expr2FortranString(e.exprArr[6]) + ", " +
+	      expr2FortranString(e.exprArr[7]) + ", " +
+	      expr2FortranString(e.exprArr[8]) + ", " +
+	      expr2FortranString(e.exprArr[9]);
+	post = ")";
+
+	if (LibFunctionsCode_C.indexOf("readCSR") == -1) {
+                    
+	    LibFunctionsCode_C = LibFunctionsCode_C.replace(
+             	               "__COMMONVARS__","");
+
+	    LibFunctionsCode_C += LibLoadCSR_C;
+
+	}
+
     }
+
 
     if(e.str.indexOf("Math.") != -1 && e.str != "Math.mod" && 
 	e.str != "Math.min" && e.str != "Math.max") {
@@ -192,8 +315,27 @@ function expr2Cstring(e) {
     } else if (e.str == ">") {
 
         ret = ">";
-        
-	// TODO: Implement NOT/AND/OR.
+
+    } else if (e.str == ".TRUE." || e.str == ".FALSE.") {
+
+	//DC4:
+	ret = (e.str == ".TRUE." ? 1 : 0);
+
+    } else if (e.str == "AND") {
+
+	//DC10:
+	ret = "&&";
+
+    } else if (e.str == "OR") {
+
+	//DC10:
+	ret = "||";
+
+    } else if (e.str == "NOT") {
+
+	//TODO: Need to remove space between '!' and what follows.
+	//DC10:
+	ret = "!";
 
     } else if ((e.isOperator() || e.isNumber() || e.isFormulaKeyword()) &&
         !e.isLetName()) {
@@ -408,7 +550,7 @@ function expr2Cstring(e) {
 	    }
         } 
 
-    } else { // Compound statement or function
+    } else { // Compound statement or function.
 
         if (e.isLibFuncCall()) {
 
@@ -443,10 +585,10 @@ function expr2Cstring(e) {
 	        var cur_gO = e.exprArr[i].gO;
 		var dynValues = ", ";
 				
-		// If it is a non-scalar grid argument
+		// If it is a non-scalar grid argument.
 		if(cur_gO != null && cur_gO.numDims > 0) {
 
-		    // Loop through all dimensions and record variable ones
+		    // Loop through all dimensions and record variable ones.
 		    for (var j = 0; j < cur_gO.dimActSize.length; j++) {
 
 		        if(cur_gO.dimDynSize[j] != null) {
@@ -522,7 +664,7 @@ function expr2Cstring(e) {
 
 
 //----------------------------------------------------------------------------
-// Save the C string generated for the program
+// Save the C string generated for the program.
 // parallel: save parallel version if 1. Serial if 0.
 // show: To be passed in showCstr to alert(code) if 1.
 // 	 Else, just to return the code string to caller.
@@ -533,7 +675,7 @@ function saveCstr(parallel, show) {
     //Regenerate code every time, otherwise may save old one if updated
     TypesAllFuncs = new Array();
     NamesAllFuncs = new Array();
-    var str = encodeURIComponent(showCstr(1, parallel, show));
+    var str = encodeURIComponent(showCstr(0, parallel, show));
     createAPI(0); //API: 
     //TODO: Is SoA by default (hence '1' as first argument)
     download2SaveFortran(str, CurProgObj.fileName);
@@ -542,7 +684,7 @@ function saveCstr(parallel, show) {
 
 
 //----------------------------------------------------------------------------
-// Show the C string generated for the program
+// Show the C string generated for the program.
 // strOfArr: Use structures of arrays (SoA) if 1. Arrays of structures (AoS)
 // 	     if 0.
 // show: Show code in JS (using alert) if 1. Just return code string if 0.
@@ -579,7 +721,7 @@ function showCstr(strOfArr, parallel, show) {
 
 //----------------------------------------------------------------------------
 // Returns C for the current step in current funtion that the
-// user is currently working on
+// user is currently working on.
 //----------------------------------------------------------------------------
 function getCstr() {
 
@@ -587,7 +729,7 @@ function getCstr() {
 
     // First, generate code for all functions, including 'main()'
     // Will be elements of the func_code array.
-    var func_code = new Array(); // Used to store code for EACH function
+    var func_code = new Array(); // Used to store code for EACH function.
     
     // Variable to store all include statements needed.
     var inclStmts = "#include <stdio.h>\n" +
@@ -599,7 +741,8 @@ function getCstr() {
     }
 
     TypeStr = ""; // Used to store TYPEs (i.e., structures).
-    Func_prototypes = new Array();   
+    Func_prototypes = new Array(); 
+    LibFunctionsCode_C = "";  
  
     // A single string that contains all function code.
     var func_code_all = "";
@@ -686,7 +829,7 @@ function getCstr() {
 
     }
 
-    // Construct function prototypes
+    // Construct function prototypes.
     var func_protos = "";
     for (var i = mO.FuncStartID; i < mO.allFuncs.length; i++) {
 
@@ -713,7 +856,8 @@ function getCstr() {
     // code (e.g., for read/write CSV), the functions' code (that contains
     // all functions, including ft_Main), and the PROGRAM "int main" that calls
     // Main function and subsequently any other functions.
-    var returnedCode = inclStmts + TypeStr + func_protos + 
+    //DC99: Added LibFunctionsCode_C
+    var returnedCode = inclStmts + TypeStr + LibFunctionsCode_C + func_protos + 
 		       func_code_all + "\n" + main_call;
 
     returnedCode = returnedCode.replace(/UNIQUEIND/g, "int"); //TT
@@ -725,7 +869,7 @@ function getCstr() {
 
 //----------------------------------------------------------------------------
 // Returns integer code for string of data type.
-// TODO: When supporting all C types, revise this with new types
+// TODO: When supporting all C types, revise this with new types.
 //----------------------------------------------------------------------------
 function dataTypeStrToInt_C(dt_string) {
 
@@ -741,6 +885,8 @@ function dataTypeStrToInt_C(dt_string) {
         return 4;
     else if (dt_string === "float")
 	return 5;
+    else if (dt_string === "void") //DC5:
+	return 8;
     else
         alert("TYPE NOT YET SUPPORTED");
 
@@ -749,7 +895,7 @@ function dataTypeStrToInt_C(dt_string) {
 
 //----------------------------------------------------------------------------
 // Returns data type string for given integer code.
-// TODO: When supporting all C types, revise this with new types
+// TODO: When supporting all C types, revise this with new types.
 //----------------------------------------------------------------------------
 function dataTypeIntToStr_C(typecode) {
 
@@ -781,8 +927,11 @@ function dataTypeIntToStr_C(typecode) {
 	    return "INTEGER"; //TT TODO:CAUTION (how it interacts w/ rest).
             break;
         case 7:
-            alert("Data type: func not supported yet"); //TODO:C:	
+            alert("Data type: func not supported yet"); //TODO:C:
             break;
+	case 8: //DC5:
+	    return "void";
+	    break;
         default:
             alert("Invalid input as data type");
 
@@ -792,7 +941,7 @@ function dataTypeIntToStr_C(typecode) {
 
 
 //----------------------------------------------------------------------------
-// Returns C code for a single function
+// Returns C code for a single function.
 //----------------------------------------------------------------------------
 function getCstr4Func(mO, f) {
 
@@ -841,7 +990,7 @@ function getCstr4Func(mO, f) {
     // Used for recording functions once (and then recording
     // their types and names to be used in other places of
     // code generation. 
-    // Initialize to blank at the start of each new function
+    // Initialize to blank at the start of each new function.
     Func_decl = "";
 
     // See their declaration (global scope) for details on below:
@@ -878,7 +1027,7 @@ function getCstr4Func(mO, f) {
 
             if (gO.numDims > 1 && gO.typesInDim != -1) {
 
-		if (gO.inArgNum > 0) func_head += ", "; // arg separator
+		if (gO.inArgNum > 0) func_head += ", "; // arg separator.
 
 	    	func_head += getDataTypeString_C(gO) + " ";
 
@@ -891,12 +1040,12 @@ function getCstr4Func(mO, f) {
 
 		if (gO.numDims >= 1) { 
 
-		    if (gO.inArgNum > 0) func_head += ", "; // arg separator
+		    if (gO.inArgNum > 0) func_head += ", "; // arg separator.
 
 	    	    func_head += getDataTypeString_C(gO) + " ";
 
                     func_head += "*" + var2C(gO.caption); 
-		    // Grid caption as arg name 
+		    // Grid caption as arg name.
 
 	    	} else {
 
@@ -905,7 +1054,7 @@ function getCstr4Func(mO, f) {
 		    var regex = new RegExp(var2C(gO.caption + "[, )]")); 
 		    if (func_head.search(regex) == -1) {
 		        
-			if (gO.inArgNum > 0) func_head += ", "; // arg separator
+			if (gO.inArgNum > 0) func_head += ", "; // arg separator.
 
 	    		func_head += getDataTypeString_C(gO) + " ";
 			func_head += var2C(gO.caption);
@@ -954,7 +1103,7 @@ function getCstr4Func(mO, f) {
 	    } else {
 		
 		// For scalar-grids, we have to copy the src value into a temp
-	   	// variable called fun_<src_var_name>  
+	   	// variable called fun_<src_var_name>. 
 		// TODO: Can fuse with earlier similar loop for function 
 		// header.  
 		func_vars += addIndentation(0) + getDataTypeString_C(gO,
@@ -1138,7 +1287,7 @@ function getCstr4Step(fO, sO, mO) {
 
                 }
 
-		// Commenting
+		// Commenting.
 		if(gO.comment != null) 
 		    grids += addIndentation(0) + "// " + gO.comment + "\n";
                 grids += addIndentation(0) + newgrid;
@@ -1191,7 +1340,7 @@ function getCstr4Step(fO, sO, mO) {
     // in parallel code generation it only stores paral/ble ones.
     
     var forstr2 = ""; 
-    // Used in parallel code generation to store non-parallelizable loops
+    // Used in parallel code generation to store non-parallelizable loops.
 
     var collapsed_loop_vars = ""; 
     // Used in parallel code generation, to store all loop variables, 
@@ -1206,7 +1355,7 @@ function getCstr4Step(fO, sO, mO) {
     var index_extra_indent = 0;
 
 
-    // if there are index variables
+    // if there are index variables.
     //
     if (rangeExpr && rangeExpr.exprArr && rangeExpr.isForeach()) {
 
@@ -1233,11 +1382,11 @@ function getCstr4Step(fO, sO, mO) {
         
 	collapse_int = collapse;
 
-	var forStrArr = new Array(); // REORDER
+	var forStrArr = new Array(); // REORDER.
 
         for (var iv = 0; iv < num_index_vars; iv++) {
 
-            // STEP: get code for foreach loop 
+            // STEP: get code for foreach loop .
             //
             var rexpr = rangeExpr.exprArr[iv];
 
@@ -1246,7 +1395,7 @@ function getCstr4Step(fO, sO, mO) {
             // TODO: FIX FIX FIX
             var ivar = var2C(rexpr.labelExpr.str);
 
-            // Define the value of literal 'end'
+            // Define the value of literal 'end'.
             var endv = var2C(DefEndName + rexpr.selDim);
 
             //TODO: Why did I change the below to the above?			
@@ -1288,15 +1437,15 @@ function getCstr4Step(fO, sO, mO) {
                         "-1;\n";
 
                 } else {
-
-                    forstr2 += addIndentation(iv) + endv + " = " + endval +
+		    //DC9:
+                    forstr2 += addIndentation(0) + endv + " = " + endval +
                         "-1;\n";
 
                 }
 
             } else {
-
-                forstr += addIndentation(iv) + endv + " = " + endval +
+		//DC9:
+                forstr += addIndentation(0) + endv + " = " + endval +
                     "-1;\n";
 
             }
@@ -1314,7 +1463,7 @@ function getCstr4Step(fO, sO, mO) {
             }
 
 
-            // Step: Start/End/Step expressions
+            // Step: Start/End/Step expressions.
 
             var start = expr2Cstring(rexpr.exprArr[RangeFields.Start]);
             var end = expr2Cstring(rexpr.exprArr[RangeFields.End]);
@@ -1501,7 +1650,7 @@ function getCstr4Step(fO, sO, mO) {
 
         var boxexpr = sO.boxExprs[box];
 
-        // Step: handle mask statment if/else/elseif/breakif
+        // Step: handle mask statment if/else/elseif/breakif.
         //
         if (sO.boxAttribs[box].isMask()) {
 
@@ -1530,12 +1679,12 @@ function getCstr4Step(fO, sO, mO) {
 
             } else if (boxexpr && boxexpr.exprArr && boxexpr.exprArr.length) {
 
-                // condition with child expression  -- if/elseif/breakif
+                // condition with child expression  -- if/elseif/breakif.
                 //
 
                 if (boxexpr.isIf()) {
 
-                    mask_unmatched++; // Increase unmatched if stmts
+                    mask_unmatched++; // Increase unmatched if stmts.
                     
                     var tmp2 = last_if_indent;
 
@@ -1552,12 +1701,12 @@ function getCstr4Step(fO, sO, mO) {
                         "if" + "(" + expr2Cstring(boxexpr) +
                         ") {\n";
 
-		    // Commenting
+		    // Commenting.
 		    if (sO.boxAttribs[box].comment != null) 
 		        stmt += addIndentation(indent + index_extra_indent) + 
 				"// " + sO.boxAttribs[box].comment + "\n";   
 
-                    last_if_indent = indent; // So that we can close it later
+                    last_if_indent = indent; // So that we can close it later.
                     
                 } else if (boxexpr.isElseIf()) {
 
@@ -1575,13 +1724,13 @@ function getCstr4Step(fO, sO, mO) {
                         "} else if" + "(" + expr2Cstring(boxexpr) +
                         ") {\n";
                     
-		    // Commenting
+		    // Commenting.
 		    if (sO.boxAttribs[box].comment != null) 
 			stmt += addIndentation(indent + index_extra_indent) + 
 				"// " + sO.boxAttribs[box].comment + "\n";
 
                 } else {
-                    // TODO: What is this case doing? (breakif)
+                    // TODO: What is this case doing? (breakif).
                     stmt += addIndentation(indent + index_extra_indent) +
                         boxexpr.str + "(" +
                         expr2Cstring(boxexpr) + ") {\n";
@@ -1598,15 +1747,15 @@ function getCstr4Step(fO, sO, mO) {
 
         } else {
 
-            // Step: Process a formula statement
+            // Step: Process a formula statement.
 
-	    // Commenting
+	    // Commenting.
 	    if (sO.boxAttribs[box].comment != null) 
 	        stmt += addIndentation(indent + index_extra_indent) + 
                         "// " + sO.boxAttribs[box].comment + "\n";  
 
             // TODO: Do some more checking on the following. May be trickier 
-            // than that
+            // than that.
             if (sO.boxAttribs[box].indent <= last_if_indent) {
 
                 for (var i = 0; i <= (last_if_indent - sO.boxAttribs[box]
@@ -1634,7 +1783,7 @@ function getCstr4Step(fO, sO, mO) {
 
 		var currFormLine;
 
-		// 'If' refers to +=, etc. cases, 'else' to normal assignments
+		// 'If' refers to +=, etc. cases, 'else' to normal assignments.
                 if (boxexpr.exprArr[1].isXAssignOp()) {
                     
 		    // HERE IF isXAssignOp() then find the two parts BEFORE
@@ -1657,24 +1806,52 @@ function getCstr4Step(fO, sO, mO) {
 
                 } else {
 
+		    //DC10: Adding scalar variables in a (potentially) parallel
+		    //      loop in the PRIVATE() list.
+		    if (ShowParallel) {
+			    
+			var gO = boxexpr.exprArr[0].gO;
+
+			// TODO: WARNING: If we directly enter other than row/col as
+			//       index, and we DON'T do it via CLICKING on the intersection
+			//       on the grid, then we may get null (because of how the
+			//       expression is created).
+			if (gO == null) {
+
+				alert("Error: NULL gO");
+
+			}
+
+			// For scalar variables only (on the LHS, i.e., written).
+			// TODO: Also, before should be "(", or ", "
+			if (gO.numDims == 0 && 
+			private_vars.indexOf(boxexpr.exprArr[0].str + ",") == -1) {
+
+			    private_vars += var2Fortran(boxexpr
+			    .exprArr[0].str) + ", ";
+
+			}
+
+		    }
+
                     currFormLine = addIndentation(indent + index_extra_indent) +
                         expr2Cstring(boxexpr) + ";\n";
 
                 }
 
                 // In current formula box: Loop through the exprArr[] 
-                // array and detect if there are functions (isFuncCall())
+                // array and detect if there are functions (isFuncCall()).
                 for (var lp = 2; lp < boxexpr.exprArr.length; lp++) {
                     // TODO: If +=, -=, etc. then checking 2 is redundant?
 
 
                     // If it is a function, save its type to pass when 
-                    // building the function code
+                    // building the function code.
                     // Note: For library function calls we don't need 
 		    // explicit declaration.
                     if (boxexpr.exprArr[lp].isUserFuncCall()) {
 
-                        // Get global id of function within module
+                        // Get global id of function within module.
                         var f = getFuncIdByName(mO, boxexpr.exprArr[lp].str);
 
                         // Only add to declarations if NOT already declared 
@@ -1747,13 +1924,13 @@ function getCstr4Step(fO, sO, mO) {
                 boxexpr.exprArr[0].type == ExprType.Return) {
 
                 // Check if return statement in position 0 (can't be 
-                // anywhere else)
+                // anywhere else).
 
                 var return_expression = "";
                 var ret_val_assignment = "";
 
                 // Parse the expression to be returned and save in order to
-                // assign to the function's name (i.e., value to be returned)
+                // assign to the function's name (i.e., value to be returned).
                 for (var i = 1; i < boxexpr.exprArr.length; i++) {
 
                     if (i > 0) return_expression += " ";
@@ -1784,17 +1961,31 @@ function getCstr4Step(fO, sO, mO) {
                 if (boxexpr !== undefined && boxexpr.exprArr[0] !==
                     undefined && boxexpr.exprArr[0].isLet()) {
 
-                    var let_data_type = findLetTypeCont(boxexpr, 0, mO); 
-		    // findLetTypeCont returns FORTRAN-style data types, so we 
-		    // need to "pipe" through dataTypeIntToStr_C after we get 
-		    // the (language-independent) data type integer 
-		    // representation of the framework.
-		    let_data_type = dataTypeStrToInt(let_data_type);
-		    let_data_type = dataTypeIntToStr_C(let_data_type);
+		    //DC10: Avoid duplicate declaration of same-named LET stmts
+		    // If grid has been already declared within THIS function, 
+ 	            // do not re-declare.
+		    // Note: For LET stmts we don't use gId, but their name.
+		    var gId = boxexpr.exprArr[0].exprArr[0].str;
+         	    if (!gridDeclaredInFunc(gId)) {
 
-                    grids += addIndentation(0) + let_data_type + " " +
-                        var2C(boxexpr.exprArr[0].exprArr[0].str) +
-                        ";\n";
+                        var let_data_type = findLetTypeCont(boxexpr, 0, mO); 
+		        // findLetTypeCont returns FORTRAN-style data types, so we 
+		        // need to "pipe" through dataTypeIntToStr_C after we get 
+		        // the (language-independent) data type integer 
+		        // representation of the framework.
+		        let_data_type = dataTypeStrToInt(let_data_type);
+		        let_data_type = dataTypeIntToStr_C(let_data_type);
+
+                        grids += addIndentation(0) + let_data_type + " " +
+                            var2C(boxexpr.exprArr[0].exprArr[0].str) +
+                            ";\n";
+
+		    	// Push into list of grids that have been declared (in the 
+	                // context of the current function being parsed).
+        	        GridsInFunc.push(gId);
+
+		    }
+
 		    
                     if (ShowParallel) {
 			    
@@ -1951,7 +2142,7 @@ function getCstr4Step(fO, sO, mO) {
     // e.g., if first mask blank we'll close an if that does not exist 
     // (otherwise we'd have to keep last open position to start instead
     // of var i=1, which is effectively similar)
-    // TODO: Could as well use only mask_unmatched in for loop,should be ok
+    // TODO: Could as well use only mask_unmatched in for loop,should be ok.
     for (var i = 1; i <= last_if_indent; i++) {
         if (i <= mask_unmatched) {
             stmt += addIndentation(last_if_indent + index_extra_indent) +
@@ -1971,6 +2162,20 @@ function getCstr4Step(fO, sO, mO) {
     // Add OMP PRIVATE clause, for parallel version, if we have a
     // OMP PARALLEL DO directive AND private variables.
     if (ShowParallel) {
+
+	// DC10: Remove private variables that are also reduction variables
+	if (Pragma_reduction[funcID][CurStep] != "") {
+
+	    var regex = new RegExp(/: (.*)\)/);
+	    var toFind = Pragma_reduction[funcID][CurStep].match(regex);	
+	    if (private_vars.indexOf(toFind[1]) != -1) {
+
+	 	//alert("FOUND!");
+		private_vars = private_vars.replace(toFind[1] + ", ", "");	
+
+	    }
+
+	}
 
         // If we don't have a parallel loop, then do not use private.
         if (forstr.length != 0 && private_vars != "") {
@@ -2089,7 +2294,7 @@ function getCstr4Step(fO, sO, mO) {
 //----------------------------------------------------------------------------
 function getDataTypeString_C(gO, e) {
 
-    // Where to search for dataType (if global, search in position 0)
+    // Where to search for dataType (if global, search in position 0).
     var typeDim;
     if (gO.typesInDim == -1) {
 
@@ -2163,6 +2368,9 @@ function getDataTypeString_C(gO, e) {
             case 7:
                 alert("Data type: func not supported"); //TODO:C:
                 break;
+	    case 8:
+		return "void";
+		break;
             default:
                 alert("Invalid input as data type");
 
@@ -2229,7 +2437,7 @@ function getDimensionString_C(gO) {
             dimensions_string += modarr[i];
 
             // Do not print comma if types in last dimension or if last 
-	    // dimension is 1 (1D)
+	    // dimension is 1 (1D).
             if (!(typesInDimAlt == 0 && i == 1) && modarr[0] != 1)
                 dimensions_string += "][";
             //else if(!(typesInDimAlt == 0 && i == 1) && modarr[0] == 1)
@@ -2241,7 +2449,7 @@ function getDimensionString_C(gO) {
 
     if (typesInDimAlt != 0) {
 
-        if (modarr[0] != 1) // If 1D (last dimension is 1) do not print it
+        if (modarr[0] != 1) // If 1D (last dimension is 1) do not print it.
             dimensions_string += modarr[0] + "]";
         else
             dimensions_string += "]";
@@ -2275,7 +2483,7 @@ function createTypeString_C(gO) {
 
         gridDefinition = getDataTypeString_C(gO, null) + " " +
             var2C(gO.caption) + ";\n";
-        // For scalars no need to display DIMENSIONS()
+        // For scalars no need to display DIMENSIONS().
 
     } else if (gO.numDims == 1 && gO.typesInDim == -1) {
 
@@ -2405,7 +2613,7 @@ function findTypeVarType_C(gO, onlyDataType) {
     } else {
         
         // TODO: We may want to follow a more general convention (another 
-	// naming scheme based on IDs)
+	// naming scheme based on IDs).
         typename = gO.caption;
 
     }
@@ -2451,7 +2659,7 @@ function findTypeVarType_C(gO, onlyDataType) {
 // Generates the glaf_api.h/lib file that includes the prototypes
 // and information on the input/output arguments of a function
 // for which the user has requested inclusion to the API. 
-// language_id: 0-C, 1-Fortran
+// language_id: 0-C, 1-Fortran.
 function createAPI(language_id) {
 
     var mO = CurModObj;

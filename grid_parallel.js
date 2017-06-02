@@ -561,7 +561,7 @@ function addToHintsObjArray(type, errorType, grid, grid2, dimWritten, j, k) {
                 box2) {
 
                 // i.e., SAME pair of instances, with the only possible 
-		// exception dimension
+		// exception dimension.
                 hintInstanceId = i;
 
             }
@@ -853,6 +853,7 @@ function convertIndexVarNumToName(num){
 }
 
 
+//----------------------------------------------------------------------------
 // Loops over an expression and detects if parallelism
 // is broken because of 1D grids that are not uniqInd
 // or because there are more than one uniqInd 1D grids.
@@ -869,6 +870,7 @@ function convertIndexVarNumToName(num){
 // Returns number of 1D grids of uniqInd type
 // SIDE EFFECTS:
 // Sets gridLHS.dimParallelizable[i] = 0 if needed.
+//----------------------------------------------------------------------------
 function checkGridsForUniqueInd(expr0, sO, gridLHS, i){
 
     var result = ["", 0];
@@ -893,7 +895,7 @@ function checkGridsForUniqueInd(expr0, sO, gridLHS, i){
 
 	    } else {
 
-		 // Is a grid, non-scalar, not UniqueInd
+		 // Is a grid, non-scalar, not UniqueInd.
 		numGridsNonUniqueInd++;
 
 	    }
@@ -906,7 +908,7 @@ function checkGridsForUniqueInd(expr0, sO, gridLHS, i){
         if (numGridsInLet == 0){ 
 
 	    gridLHS.dimParallelizable[i] = 1; // Value denoting
-	       			              // no NS_grids
+	       			              // no NS_grids.
         } else if (numGridsInLet == 1) {
 
             if (numGridsUniqueInd == 1){
@@ -1182,7 +1184,7 @@ function addDimsWrittenLHS(e, gridLHS, indices, isLHS, indent, box_id, sO) {
 
 
 // TODO: Instead of using var2Fortran, I use the base name in the context
-// of loop dependency analysis
+// of loop dependency analysis.
 
 
 //----------------------------------------------------------------------------
@@ -1253,7 +1255,7 @@ function doDependAnalysisForNonScalarGrids(nonScalarGridInstances) {
                         // potentially based on the direction of dependency)
                         // based on the difference of the index across one 
                         // direction, if we have a WAR (i.e., box id 
-                        // differences is positive/negative)
+                        // differences is positive/negative).
                         if (curNonScalarGrid.dimsWrittenLHS[dim][j] !=
                             curNonScalarGrid.dimsWrittenRHS[dim][k]) {
 
@@ -1318,7 +1320,7 @@ function analyzeConstantIndices(nonScalarGridInstances, scalarGridInstances) {
                         dim].length); j++) {
 
                     // In indexOf search for ALL dims (row/col/indX), in case 
-                    // user does so
+                    // user does so.
                     for (var dim2 = 0; dim2 < DimsWrittenInStep.length; dim2++) 		    {
 
                         if (curNonScalarGrid.dimsWrittenLHS[dim][j].indexOf(
@@ -1805,7 +1807,7 @@ function recordMaskEdges(sO) {
                     // IF's.
                     // In this case we need to point the falseEdge to AFTER 
                     // the next (imaginary) ENDIF by finding the mergeBox of 
-                    // the else/elseif (recursively if needed)
+                    // the else/elseif (recursively if needed).
 
                     var recurs_mergebox;
                     var recurs_node = StepCFGinfo[prev_mask].myIFbox;
@@ -1927,15 +1929,15 @@ function doScalarDependAnalysis(scalarGridInstances, funcID, stepnum) {
 
     for (var i = 0; i < scalarGridInstances.length; i++) {
 
-        if (scalarGridInstances[i].isLHS) { // Written at least once
+        if (scalarGridInstances[i].isLHS) { // Written at least once.
 
-            var RootNode = CodeBoxId.Range + 1; // Start search from root node
+            var RootNode = CodeBoxId.Range + 1; // Start search from root node.
             var stack = new Array();
             stack.push(RootNode);
 
-            var WAR = 0; // Write after read
-            var pointerLHS = 0; // Pointer to current index for LHS
-            var pointerRHS = 0; // Pointer to current index for RHS
+            var WAR = 0; // Write after read.
+            var pointerLHS = 0; // Pointer to current index for LHS.
+            var pointerRHS = 0; // Pointer to current index for RHS.
 
             // TODO: Do we cover tha case where X is written and read in same 
             // box?
@@ -1944,10 +1946,10 @@ function doScalarDependAnalysis(scalarGridInstances, funcID, stepnum) {
                 var N = stack.pop(); 
 		// Pops last element from array (i.e., current tree level).
 
-                //Find if var X is written in current node
+                //Find if var X is written in current node.
                 pointerLHS = scalarGridInstances[i].isWrittenBox.indexOf(N);
 
-                if (pointerLHS != -1) { // i.e., X is written in N
+                if (pointerLHS != -1) { // i.e., X is written in N.
 
                     // If there is a read of the same variable in the same
                     // box, it is a reduction (WAR).
@@ -2002,7 +2004,7 @@ function doScalarDependAnalysis(scalarGridInstances, funcID, stepnum) {
                     // TODO:No need to explore subtree.
                     WAR = 0;
 
-                } else { // i.e., X is not written in N
+                } else { // i.e., X is not written in N.
 
                     pointerRHS = scalarGridInstances[i].isReadBox.indexOf(N);
 
@@ -2019,7 +2021,7 @@ function doScalarDependAnalysis(scalarGridInstances, funcID, stepnum) {
 
                         
                         // TODO: I can mark as read if I want to NOT do 
-                        // redundant work
+                        // redundant work.
                         // TODO: CAUTION First put false, then true, so 
                         // that POP pops true (nearest path) - 
                         // DFS traversal.
@@ -2363,7 +2365,7 @@ function analyzeParallelismAll(fO, single_step_anal) {
     // user-defined functions.
     // 2nd dimension is the step ID, starting from 1.
     // CAUTION: 1st dimension [0] and [1] will have "".
-    // CAUTION: 2nd dimension [1] is ""
+    // CAUTION: 2nd dimension [1] is "".
     Pragma_str = new Array();
     Pragma_reduction = new Array();
     FuncHasSerVer = new Array();
@@ -2655,7 +2657,7 @@ function findParallelismInFunction(mO, fO, single_step_anal) {
                     // TODO: Here what if name changes (or is set by LET). 
                     // Need to take special care.
                     // TODO: Also, will need to take special care for multiple
-                    // types per ROW/COL
+                    // types per ROW/COL.
 
 
                     // Here we are in an assignment statement, so examine LHS 
@@ -2679,16 +2681,16 @@ function findParallelismInFunction(mO, fO, single_step_anal) {
                     }
 
                     if (boxexpr.exprArr[0].isGridCell() && boxexpr.exprArr[
-                            0].gO.numDims) { // LHS is a grid
+                            0].gO.numDims) { // LHS is a grid.
 
-                        // 0 means as LHS	
+                        // 0 means as LHS.	
                         addNonScalarGridInstance(boxexpr.exprArr[0], 
 			    nonScalarGridInst, box, sO, 0);
 
-                    } else { // LHS is a scalar
+                    } else { // LHS is a scalar.
                         // TODO: Is there any other subcase?
 
-                        // 0 means as LHS		
+                        // 0 means as LHS.		
                         addScalarGridInstance(boxexpr.exprArr[0], 
 			    scalarGridInst, box, sO, 0);	
 
@@ -2716,7 +2718,7 @@ function findParallelismInFunction(mO, fO, single_step_anal) {
                         0].type == ExprType.Return) {
 
                     // Check if return statement in position 0 (can't be 
-                    // anywhere else)
+                    // anywhere else).
 
                     // TODO: CAUTION: Do we need to record if it is a return
 		    // to add returned grid (if non-scalar) as read (RHS)?
@@ -2775,7 +2777,7 @@ function findParallelismInFunction(mO, fO, single_step_anal) {
                         undefined && boxexpr.exprArr[0].isUserFuncCall()) {
                         parseFunctionCall(mO, boxexpr, box, 0);
                     }
-                    // End standalone function
+                    // End standalone function.
 
                 }
 
@@ -3096,7 +3098,7 @@ function getGridIdInNonScalarGridInstances(nonScalarGridInstances, name) {
     }
 
     //alert("Grid not found");
-    return -1; // TODO: Handle in caller
+    return -1; // TODO: Handle in caller.
 
 }
 
@@ -3578,8 +3580,8 @@ function whatToCompare(nonscalargrid, t, f, calleeName, curDimsWritten) {
 
         var gO = fO.allGrids[g];
 
-        // We only need to analyze incoming arguments
-        if (gO.inArgNum >= 0) { // this grid is an incoming arg
+        // We only need to analyze incoming arguments.
+        if (gO.inArgNum >= 0) { // this grid is an incoming arg.
 
             // Record all input grid arguments so as to do the "renaming" 
             // during "inlining" called functions.
@@ -3884,7 +3886,7 @@ function traverseStepBoxes(functionArgs, fO, gridsInFunc, funcStack) {
 
         // TODO: CAUTION if ft_row, etc when compared, too, later.
 
-        // Note: rangeExpr.exprArr[] contains root range expressions
+        // Note: rangeExpr.exprArr[] contains root range expressions.
         var rangeExpr = sO.boxExprs[CodeBoxId.Range];
 
         // if there are index variables
@@ -3900,7 +3902,7 @@ function traverseStepBoxes(functionArgs, fO, gridsInFunc, funcStack) {
                 // TODO: FIX FIX FIX
                 var ivar = var2Fortran(rexpr.labelExpr.str);
 
-                // These are the dimensions across which loop iterates
+                // These are the dimensions across which loop iterates.
                 DimsIteratedOn.push(ivar);
 
             }
@@ -3924,7 +3926,7 @@ function traverseStepBoxes(functionArgs, fO, gridsInFunc, funcStack) {
             // IF/ELSEIF statements?
             if (!sO.boxAttribs[box].isMask()) {
 
-                // Step: process a formula statement
+                // Step: process a formula statement.
 
                 //alert("Expression: " + expr2FortranString(boxexpr));
 
@@ -3963,17 +3965,17 @@ function traverseStepBoxes(functionArgs, fO, gridsInFunc, funcStack) {
                     }
 
                     if (boxexpr.exprArr[0].isGridCell() && boxexpr.exprArr[
-                            0].gO.numDims) { // LHS is a grid
+                            0].gO.numDims) { // LHS is a grid.
 
                         var XXX = whatToFind(functionArgs, myArgs,
                             boxexpr.exprArr[0].gO.caption);
-                        // 0 means as LHS	
+                        // 0 means as LHS.	
                         
                         addNonScalarForFunc(functionArgs, myArgs, XXX,
                             boxexpr.exprArr[0], gridsInFunc, box, sO,
                             0);
 
-                    } else { // LHS is a scalar
+                    } else { // LHS is a scalar.
                         // TODO: Is there any other subcase?
 
                         // Do nothing.
@@ -4019,7 +4021,7 @@ function traverseStepBoxes(functionArgs, fO, gridsInFunc, funcStack) {
 
                             // Do nothing.
 
-                        } else { // TODO: Do for lib func calls too
+                        } else { // TODO: Do for lib func calls too.
 
                             //alert("Other:" + boxexpr.exprArr[lp].str);
 
@@ -4401,7 +4403,7 @@ function addDimsWrittenLHSforFunc(functionArgs, myArgs, e, gridLHS, indices,
                 gridLHS.dimsWrittenRHSindent.push(indent);
                 gridLHS.dimsWrittenRHSboxNum.push(box_id);
                 gridLHS.stepsWrittenRHS.push(sO); 
-		// To save step (to use in analyzeMainsFunctions)
+		// To save step (to use in analyzeMainsFunctions).
 
             }
 
@@ -4423,14 +4425,14 @@ function processIfElseifRHSforFunc(functionArgs, myArgs, e,
 
         if (e.exprArr[i].isGridCell()) {
 
-            if (!e.exprArr[i].gO.numDims) { // Non-scalar
+            if (!e.exprArr[i].gO.numDims) { // Non-scalar.
 
                 //alert("scalar grid:" + e.exprArr[i].str);
                 //addScalarGridInstance(e.exprArr[i], 
 		//	scalarGridInstances, box, sO, 1);
                 //Do nothing
 
-            } else { // Scalar grid
+            } else { // Scalar grid.
 
                 //alert("non-scalar grid:" + e.exprArr[i].str);
                 var XXX = whatToFind(functionArgs, myArgs, e.exprArr[i].gO
@@ -4444,7 +4446,7 @@ function processIfElseifRHSforFunc(functionArgs, myArgs, e,
         } else {
 
             // TODO: Take care of functions or anything else that may  
-            // appear in if/elseif stmt as RHS variable
+            // appear in if/elseif stmt as RHS variable.
             // TODO: CAUTION: What if row/col/endX appear here? 
             // We should not change them, so should be ok.
 
@@ -4465,7 +4467,7 @@ function FuncsCalledPerFuncInfo(name, f, functionArgs_t, allArgs_t) {
     this.name = name;
 
     // Id of function, as returned by getFuncIdByName() - 0 is main
-    // rest are 1,2,... in the order they are defined
+    // rest are 1,2,... in the order they are defined.
     this.gID = f;
 
     // Array containing ARRAYS of arguments (will be created when needed)
@@ -4614,7 +4616,7 @@ function printFuncCalledPerFuncInfo() {
 function parseFunctionCall(mO, boxexpr, box, exprArrInd) {
 
     // TODO: Here we'll probably need to take care of 
-    // functions
+    // functions.
 
     var functionArgs_t_all = new Array();
     var functionArgs_t = new Array();
@@ -4649,7 +4651,7 @@ function parseFunctionCall(mO, boxexpr, box, exprArrInd) {
         var gO = fO_t.allGrids[g]; // 
 
         // We only need to analyze inc arguments.
-        if (gO.inArgNum >= 0) { // this grid is an incoming arg
+        if (gO.inArgNum >= 0) { // this grid is an incoming arg.
 
             // We only need to analyze grids passed by reference.
             // i.e., multidimensional grids only (scalar passed by value).
@@ -4688,7 +4690,7 @@ function parseFunctionCall(mO, boxexpr, box, exprArrInd) {
 
     } else {
 
-        // Function has been called again from Main
+        // Function has been called again from Main.
         // Just add new arguments in existing element 
         // i of FuncsFromCaller that has been found.
         // Need to check for DUPLICATE arguments, so 
@@ -4718,7 +4720,7 @@ function parseFunctionCall(mO, boxexpr, box, exprArrInd) {
 
         }
 
-        // TODO: CAUTION check after Ruchira's fix on DELETED
+        // TODO: CAUTION check after Ruchira's fix on DELETED.
         for (var j = 0; j < FuncsFromCaller[found].allArgs.length; j++) {
 	
             FuncsFromCaller[found].allArgs[j].push(functionArgs_t_all[j]);
