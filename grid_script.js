@@ -65,6 +65,28 @@ var AllHtmlGridIds = ['outMenu', 'src1Menu', 'src2Menu', 'src3Menu',
 					  //DC5: Increased, otherwise only
 					  // supports up to 11 grids (src
 					  // and output).
+    'src35Menu', 'src36Menu', 'src37Menu', 
+    'src38Menu', 'src39Menu', 'src40Menu', 
+    'src41Menu', 'src42Menu', 'src43Menu', 'src44Menu',
+    'src45Menu', 'src46Menu', 'src47Menu', 
+    'src48Menu', 'src49Menu', 'src50Menu', 
+    'src51Menu', 'src52Menu', 'src53Menu', 'src54Menu',
+    'src55Menu', 'src56Menu', 'src57Menu', 
+    'src58Menu', 'src59Menu', 'src60Menu', 
+    'src61Menu', 'src62Menu', 'src63Menu', 'src64Menu',
+    'src65Menu', 'src66Menu', 'src67Menu', 
+    'src68Menu', 'src69Menu', 'src70Menu', 
+    'src71Menu', 'src72Menu', 'src73Menu', 'src74Menu',
+    'src75Menu', 'src76Menu', 'src77Menu', 
+    'src78Menu', 'src79Menu', 'src80Menu', 
+    'src81Menu', 'src82Menu', 'src83Menu', 'src84Menu',
+    'src85Menu', 'src86Menu', 'src87Menu', 
+    'src88Menu', 'src89Menu', 'src90Menu', 
+    'src91Menu', 'src92Menu', 'src93Menu', 'src94Menu',
+    'src95Menu', 'src96Menu', 'src97Menu', 
+    'src98Menu', 'src99Menu', 'src100Menu', 
+					//PS1: Increased again to 100 src grids
+					
 ];
 
 // Data types supported:
@@ -5653,7 +5675,6 @@ function initHtmlGridIds() {
     document.getElementById('src15Menu').innerHTML = "";
     document.getElementById('src16Menu').innerHTML = "";
     document.getElementById('src17Menu').innerHTML = "";
-
     document.getElementById('src18Menu').innerHTML = "";
     document.getElementById('src19Menu').innerHTML = "";
     document.getElementById('src20Menu').innerHTML = "";
@@ -5671,6 +5692,73 @@ function initHtmlGridIds() {
     document.getElementById('src32Menu').innerHTML = "";
     document.getElementById('src33Menu').innerHTML = "";
     document.getElementById('src34Menu').innerHTML = "";
+	//PS2: Updated to support 100 src grids
+    document.getElementById('src35Menu').innerHTML = "";
+    document.getElementById('src36Menu').innerHTML = "";
+    document.getElementById('src37Menu').innerHTML = "";
+    document.getElementById('src38Menu').innerHTML = "";
+    document.getElementById('src39Menu').innerHTML = "";
+    document.getElementById('src40Menu').innerHTML = "";
+    document.getElementById('src41Menu').innerHTML = "";
+    document.getElementById('src42Menu').innerHTML = "";
+    document.getElementById('src43Menu').innerHTML = "";
+    document.getElementById('src44Menu').innerHTML = "";
+    document.getElementById('src45Menu').innerHTML = "";
+    document.getElementById('src46Menu').innerHTML = "";
+    document.getElementById('src47Menu').innerHTML = "";
+    document.getElementById('src48Menu').innerHTML = "";
+    document.getElementById('src49Menu').innerHTML = "";
+    document.getElementById('src50Menu').innerHTML = "";
+    document.getElementById('src51Menu').innerHTML = "";
+    document.getElementById('src52Menu').innerHTML = "";
+    document.getElementById('src53Menu').innerHTML = "";
+    document.getElementById('src54Menu').innerHTML = "";
+    document.getElementById('src55Menu').innerHTML = "";
+    document.getElementById('src56Menu').innerHTML = "";
+    document.getElementById('src57Menu').innerHTML = "";
+    document.getElementById('src58Menu').innerHTML = "";
+    document.getElementById('src59Menu').innerHTML = "";
+    document.getElementById('src60Menu').innerHTML = "";
+    document.getElementById('src61Menu').innerHTML = "";
+    document.getElementById('src62Menu').innerHTML = "";
+    document.getElementById('src63Menu').innerHTML = "";
+    document.getElementById('src64Menu').innerHTML = "";
+    document.getElementById('src65Menu').innerHTML = "";
+    document.getElementById('src66Menu').innerHTML = "";
+    document.getElementById('src67Menu').innerHTML = "";
+    document.getElementById('src68Menu').innerHTML = "";
+    document.getElementById('src69Menu').innerHTML = "";
+    document.getElementById('src70Menu').innerHTML = "";
+    document.getElementById('src71Menu').innerHTML = "";
+    document.getElementById('src72Menu').innerHTML = "";
+    document.getElementById('src73Menu').innerHTML = "";
+    document.getElementById('src74Menu').innerHTML = "";
+    document.getElementById('src75Menu').innerHTML = "";
+    document.getElementById('src76Menu').innerHTML = "";
+    document.getElementById('src77Menu').innerHTML = "";
+    document.getElementById('src78Menu').innerHTML = "";
+    document.getElementById('src79Menu').innerHTML = "";
+    document.getElementById('src80Menu').innerHTML = "";
+    document.getElementById('src81Menu').innerHTML = "";
+    document.getElementById('src82Menu').innerHTML = "";
+    document.getElementById('src83Menu').innerHTML = "";
+    document.getElementById('src84Menu').innerHTML = "";
+    document.getElementById('src85Menu').innerHTML = "";
+    document.getElementById('src86Menu').innerHTML = "";
+    document.getElementById('src87Menu').innerHTML = "";
+    document.getElementById('src88Menu').innerHTML = "";
+    document.getElementById('src89Menu').innerHTML = "";
+    document.getElementById('src90Menu').innerHTML = "";
+    document.getElementById('src91Menu').innerHTML = "";
+    document.getElementById('src92Menu').innerHTML = "";
+    document.getElementById('src93Menu').innerHTML = "";
+    document.getElementById('src94Menu').innerHTML = "";
+    document.getElementById('src95Menu').innerHTML = "";
+    document.getElementById('src96Menu').innerHTML = "";
+    document.getElementById('src97Menu').innerHTML = "";
+    document.getElementById('src98Menu').innerHTML = "";
+    document.getElementById('src99Menu').innerHTML = "";
+    document.getElementById('src100Menu').innerHTML = "";
 
 
 
@@ -15497,7 +15585,9 @@ function download2Save(str, filename) {
     // Get the anchor element reserved for saving and change its attributs
     //    
     var elem = document.getElementById('saveLink');
-    elem.setAttribute('href', 'data:text/plain;charset=utf-8,' + str);
+	var blob = new Blob([str], {type : 'text/plain;charset=utf-8'});
+    elem.setAttribute('href', URL.createObjectURL(blob));
+ //   elem.setAttribute('href', 'data:text/plain;charset=utf-8,' + str);
     elem.download = "myfile.txt"; // filename; 
     //
     // Clic the link so that it will start downloading (saving)
