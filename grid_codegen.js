@@ -2960,7 +2960,7 @@ function getFortranStr4Step(fO, sO, mO) {
 
 //2017: 
 //If global scope grid, do not declare.
-if (gO.globalRefId <0) {
+if (gO.globalRefId <0 && !gO.inExternalMod) {
 
         if ((gO.inArgNum < 0) && (!gO.isRetVal)) {
 
