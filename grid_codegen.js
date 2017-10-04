@@ -1169,8 +1169,6 @@ function expr2FortranString(e) {
 
 	} else {
 
-	     ret = var2Fortran(e.str);
-            
         }
 
     } else if (e.isGridCell()) { // Any non-scalar grid
@@ -1973,6 +1971,14 @@ function getFortranStr() {
 
     }
 
+
+    //2017:
+    //Checks if we have glob vars; if not, no need for call.
+    if (CurModObj.allFuncs[1].allGrids.length != 0) {
+    	main_call += addIndentation(0) + "CALL initGlobVars\n";
+    }
+
+
     main_call += addIndentation(0) +
         var2Fortran(CurModObj.allFuncs[DefMainFuncInd].allGrids[0].caption) +
         " = " + var2Fortran(DefMainFuncName) +
@@ -2007,12 +2013,26 @@ function getFortranStr() {
     TypeStr = (TypeStr == "") ? TypeStr : "MODULE types_module\n" +
         TypeStr + "END MODULE\n\n";
 
+
+
+   //2017:
+    //Gets "global function" variables (i.e., global variables).
+    //First, need to check if there are global variables.
+    var glob_vars = "";
+    var initGlobSubroutine = "";
+    if (CurModObj.allFuncs[1].allGrids.length != 0) {
+    	initGlobSubroutine = getFortranStr4Glob(mO, 1);
+    	glob_vars = "\n" + Grids_new_decl + "\n";
+    }
+
     // Create module that will contain ALL functions used in the program
     // (as stored in func_code_all), and including Main function.
     var funcs_module = "MODULE funcs_module\n" + (ShowParallel ?
             "USE OMP_LIB\n" : "") + "__USEMODULES__" + "IMPLICIT NONE\n" +
-        "CONTAINS\n\n";
-    funcs_module += func_code_all + "END MODULE\n";
+	    glob_vars + //2017: Added the global variables found.
+            "CONTAINS\n\n";
+
+    funcs_module += initGlobSubroutine + func_code_all + "END MODULE\n";
 
     // Final generated code will contain the TYPEs code, the library functions
     // code (e.g., for read/write CSV), the functions' module (that contains
@@ -2111,6 +2131,173 @@ function dataTypeIntToStr(typecode) {
     }
 
 }
+
+
+
+
+//2017:
+//This is a modified version of getFortranStr4Func only for the global scope grid
+//declarations and initializations
+function getFortranStr4Glob(mO, f) {
+
+
+    var fO = mO.allFuncs[f];
+        
+    // Initialize current step numbering for current function to zero.
+    CurStep = 0;
+    
+    // Initialize GridsInFunc.
+    GridsInFunc = new Array();
+    Loop_var_per_dim = new Array();
+    Index_end_per_dim = new Array();
+
+
+    // Used for declaring functions as variables (needed in Fortran). 
+    // Initialize to blank at the start of each new function
+    Func_decl = "";
+
+    // See their declaration (global scope) for details on below:
+    Row_col_decl = "";
+    Index_end_decl = "";
+    Grids_new_decl = "";
+    TitleDefs_decl = "";
+
+
+    // Used to store all the arguments to the function, which in Fortran 
+    // have to be declared explicitly
+    var func_args_decl = "";
+	
+	// In func_vars we declare the type and name of any grids that were
+    // passed as parameters in the current function for which we are 
+    // generating code.
+    var func_vars = "";
+
+    var func_val_init = "";
+
+    // Add argument list to function header. To do that, go through ALL
+    // grids in the function and add thos who are incoming args.
+    for (var g = 0; g < fO.allGrids.length; g++) {
+
+        var gO = fO.allGrids[g]; 
+
+        // TODO: If a grid with specific indices e.g. array[3][1] treat as 
+        // passed by value!
+        if (gO.inArgNum >= 0) { // This grid is an incoming arg
+
+            
+	    // For non-scalar grids. (also0 applies to 1D arrays).
+            if (gO.numDims > 0) { 
+
+                if (var2Fortran(fO.funcCallExpr.str) != "ft_Main") {
+
+                    var datatype = getDataTypeString(gO, null);
+
+                    if (datatype.indexOf("TYPE") != -1) {
+
+                        func_args_decl += datatype;
+                    
+		    } else {
+
+                        // We use assumed array sizes, so that we cover the
+                        // general case including the allocatable grids.
+                        // In this case we use ':' for each dimension, in
+			// DIMENSIONS().
+			var assumed_size = "";
+                        for (var t = 0; t < getDimensionString(gO).split(
+                                ",").length - 1; t++) {
+
+                            assumed_size += ":,";
+                        
+			}
+
+                        assumed_size += ":";
+
+                        func_args_decl += datatype +
+                            ", DIMENSION(" +
+                            assumed_size + 
+                            ") :: " +
+                            var2Fortran(gO.caption) + "\n";
+
+                    }
+
+                } 
+            } else {
+
+                // TODO: Here getDataTypeString(gO) for scalars returns
+                // undefined
+                func_args_decl += getDataTypeString(
+                        gO, null) + " :: " +
+                    var2Fortran(gO.caption) + "\n";
+                // TODO: Use commas to separate
+                // For scalars no need to display DIMENSIONS()
+				
+		// For non-scalar grids, we do nothing (passed by reference).
+            	// For scalar-grids, we have to copy the src value into a temp
+	   	// variable called fun_<src_var_name>
+				
+		// Initialization occurs as a separate step, to avoid SAVE 
+		// semasiology across function calls (when declaring and 
+		// init'ing at the same time 
+    		// in Fortran - SEE Fortran language SAVE semantics).
+    		// TODO: Can fuse with earlier similar loop for function 
+		// header.
+		func_vars += getDataTypeString(gO,
+                        null) + " :: " + "fun_" +
+                    gO.caption + "\n";
+
+                func_val_init += "fun_" + gO.caption +
+                    " = " + var2Fortran(gO.caption) + "\n";
+
+            }
+
+        }
+    }
+    
+
+    // At this point we have completed in func_head the function header
+    // that contains the type of function, the function name, and its
+    // arguments contained in parentheses.
+
+
+
+    // STEP: Code for each step in the function
+    //
+    var step_code = "";
+    //
+    var stepStart = 1; // Note: Function prototype at step 0. 
+    //
+    for (var s = stepStart; s < fO.allSteps.length; s++) {
+
+        step_code += getFortranStr4Step(fO, fO.allSteps[s], mO);
+
+    }
+
+  
+    // Construct the final function string that contains:
+    // a) the function header (type + name + arguments).
+    // b) arguments' declaration (type + name).
+    // c) temp scalar variables (to keep 'pass by value' semantics for
+    //    scalar arguments).
+    // d) row, col, indX (loop indices) - no redefinition across steps.   
+    // e) end0, end1, etc. (loop end variables) - no redefinition across steps
+    // f) title definitions.
+    // g) new grid declarations (i.e., not passed as arguments).
+    // h) Initialization of scalar variables that store scalar function
+    //    arguments (fun_<scalar_arg_name>).
+    // i) computation code for all steps of this function.
+    // j) return value assignment to function name
+    // k) end function statement
+    var function_string = "SUBROUTINE initGlobVars\n" + func_args_decl + func_vars + 
+        Row_col_decl + Index_end_decl + TitleDefs_decl +
+        func_val_init + step_code +
+	"END SUBROUTINE\n\n";
+
+    return function_string;
+
+}
+
+
+
 
 
 //----------------------------------------------------------------------------
@@ -2769,7 +2956,11 @@ function getFortranStr4Step(fO, sO, mO) {
         var gId = sO.allGridIds[g];
         var gO = fO.allGrids[gId];
 
-        if ((gO.inArgNum < 0) && (!gO.isRetVal) && (gO.globalRefId == -1)) { //NS: last check
+//2017: 
+//If global scope grid, do not declare.
+if (gO.globalRefId <0) {
+
+        if ((gO.inArgNum < 0) && (!gO.isRetVal)) {
 
             // If grid has been already declared within THIS function, 
             // do not re-declare.
@@ -2906,6 +3097,10 @@ function getFortranStr4Step(fO, sO, mO) {
         }
 
     }
+
+//2017: 
+//If global scope grid, do not declare anything from above.
+}
 
 
     // STEP: Create Fortran do loops (a loop for each index var).
