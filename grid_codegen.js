@@ -1169,6 +1169,8 @@ function expr2FortranString(e) {
 
 	} else {
 
+	     ret = var2Fortran(e.str);
+            
         }
 
     } else if (e.isGridCell()) { // Any non-scalar grid
